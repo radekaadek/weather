@@ -1,9 +1,11 @@
+import logging
+import httpx
 from typing import TypedDict, Annotated, cast
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import httpx
 from datetime import date, datetime
+from cachetools import TTLCache
 
 app = FastAPI(
     title="Weather and Solar Energy Forecast API",
@@ -18,6 +20,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+logger = logging.getLogger(__name__)
 
 OPEN_METEO_API_URL = "https://api.open-meteo.com/v1/forecast"
 SOLAR_INSTALLATION_POWER_KW = 2.5
@@ -62,39 +66,84 @@ class OpenMeteoResponse(TypedDict):
     hourly_units: dict[str, str]
     hourly: HourlyWeatherData
 
-async def fetch_weather_data(latitude: float, longitude: float, daily_variables: list[str], hourly_variables: list[str] | None = None) -> OpenMeteoResponse:
+cache: TTLCache[str, OpenMeteoResponse] = TTLCache(maxsize=100, ttl=60)
+
+async def _fetch_open_meteo_data(
+    latitude: float,
+    longitude: float,
+    cache_prefix: str,
+    daily_params: list[str] | None = None,
+    hourly_params: list[str] | None = None,
+) -> OpenMeteoResponse:
     """
-    Helper function to get weather data from Open-Meteo API.
+    Internal helper function to fetch data from Open-Meteo API with caching and error handling.
     """
+    cache_key = f"{cache_prefix}_{latitude}_{longitude}"
+    if cache_key in cache:
+        return cache[cache_key]
+
     params: dict[str, float | int | str | list[str]] = {
         "latitude": latitude,
         "longitude": longitude,
-        "daily": daily_variables,
         "timezone": "auto",
         "forecast_days": 7,
         "temperature_unit": "celsius",
         "wind_speed_unit": "kmh",
         "precipitation_unit": "mm",
     }
-    
-    if hourly_variables:
-        params["hourly"] = hourly_variables
+
+    if daily_params:
+        params["daily"] = daily_params
+    if hourly_params:
+        params["hourly"] = hourly_params
 
     try:
         async with httpx.AsyncClient() as client:
             response = await client.get(OPEN_METEO_API_URL, params=params, timeout=10.0)
             _ = response.raise_for_status()
-            return cast(OpenMeteoResponse, response.json())
+            data = cast(OpenMeteoResponse, response.json())
+            cache[cache_key] = data
+            return data
     except httpx.RequestError as exc:
+        logger.error(f"Error connecting to Open-Meteo API for {cache_prefix}: {exc}")
         raise HTTPException(status_code=500, detail=f"Error connecting to Open-Meteo API: {exc}")
     except httpx.HTTPStatusError as exc:
+        logger.error(f"Error response from Open-Meteo API for {cache_prefix}: {exc.response.text}")
         raise HTTPException(
             status_code=exc.response.status_code,
             detail=f"Error response from Open-Meteo API: {exc.response.text}"
         )
     except Exception as exc:
+        logger.error(f"An unexpected error occurred for {cache_prefix}: {exc}")
         raise HTTPException(status_code=500, detail=f"An unexpected error occurred: {exc}")
 
+
+async def fetch_forecast_data(latitude: float, longitude: float) -> OpenMeteoResponse:
+    """
+    Helper function to get daily forecast data from Open-Meteo API with caching.
+    """
+    daily_fields = ["weather_code", "temperature_2m_max", "temperature_2m_min", "sunshine_duration"]
+    return await _fetch_open_meteo_data(
+        latitude=latitude,
+        longitude=longitude,
+        cache_prefix="forecast",
+        daily_params=daily_fields
+    )
+
+
+async def fetch_summary_data(latitude: float, longitude: float) -> OpenMeteoResponse:
+    """
+    Helper function to get daily and hourly data for the weekly summary from Open-Meteo API with caching.
+    """
+    daily_fields = ["temperature_2m_max", "temperature_2m_min", "sunshine_duration", "precipitation_sum"]
+    hourly_fields = ["pressure_msl"]
+    return await _fetch_open_meteo_data(
+        latitude=latitude,
+        longitude=longitude,
+        cache_prefix="summary",
+        daily_params=daily_fields,
+        hourly_params=hourly_fields
+    )
 
 @app.get("/forecast", response_model=list[DailyForecast])
 async def get_daily_forecast(
@@ -104,13 +153,7 @@ async def get_daily_forecast(
     """
     Retrieves a 7-day weather forecast and estimates solar energy production for a given location.
     """
-    daily_variables = [
-        "weather_code",
-        "temperature_2m_max",
-        "temperature_2m_min",
-        "sunshine_duration",
-    ]
-    weather_data = await fetch_weather_data(latitude, longitude, daily_variables)
+    weather_data = await fetch_forecast_data(latitude, longitude)
 
     forecast_list: list[DailyForecast] = []
     
@@ -126,14 +169,11 @@ async def get_daily_forecast(
     sunshine_durations = daily_info.get("sunshine_duration", [])  # in seconds
 
     for i in range(len(dates)):
-        # Ensure all required data for the day is present
         if any(v is None for v in [dates[i], weather_codes[i], temp_mins[i], temp_maxes[i], sunshine_durations[i]]):
-            continue # Skip day if any data is missing
+            continue
             
-        # The 'is not None' check is now valid because the type is 'float | None'
         exposure_time_hours = (sunshine_durations[i] or 0) / 3600
         
-        # Calculate estimated energy [kWh]
         estimated_energy_kwh = SOLAR_INSTALLATION_POWER_KW * exposure_time_hours * PANEL_EFFICIENCY
 
         forecast_list.append(
@@ -156,15 +196,7 @@ async def get_weekly_summary(
     Provides a summary of weather conditions for the upcoming 7 days, including average pressure,
     average sunshine, extreme temperatures, and a general weather comment.
     """
-    daily_variables = [
-        "temperature_2m_max",
-        "temperature_2m_min",
-        "sunshine_duration",
-        "precipitation_sum",
-    ]
-    hourly_variables = ["pressure_msl"]
-
-    weather_data = await fetch_weather_data(latitude, longitude, daily_variables, hourly_variables)
+    weather_data = await fetch_summary_data(latitude, longitude)
 
     daily_info = weather_data.get("daily")
     hourly_info = weather_data.get("hourly")
@@ -181,7 +213,6 @@ async def get_weekly_summary(
     hourly_pressures: list[float | None] = hourly_info.get("pressure_msl", [])
     hourly_times: list[str] = hourly_info.get("time", [])
 
-    # Calculate average weekly pressure
     daily_pressures: list[float] = []
     current_day: date | None = None
     current_day_pressures: list[float] = []
@@ -199,26 +230,24 @@ async def get_weekly_summary(
             if current_day_pressures:
                 daily_pressures.append(sum(current_day_pressures) / len(current_day_pressures))
             current_day = hour_date
-            for pressure in hourly_pressures[i:]:
-                if pressure is not None:
-                    current_day_pressures.append(pressure)
+            current_day_pressures = []
+            pressure = hourly_pressures[i]
+            if pressure is not None:
+                current_day_pressures.append(pressure)
     
     if current_day_pressures: # Add the last day's average
         daily_pressures.append(sum(current_day_pressures) / len(current_day_pressures))
 
     average_weekly_pressure_hPa: float = round(sum(daily_pressures) / len(daily_pressures), 2) if daily_pressures else 0.0
 
-    # Calculate average weekly sunshine hours
     valid_sunshine_durations = [s for s in sunshine_durations if s is not None]
     total_sunshine_seconds = sum(valid_sunshine_durations)
     average_weekly_sunshine_hours: float = round((total_sunshine_seconds / len(valid_sunshine_durations)) / 3600, 2) if valid_sunshine_durations else 0.0
 
-    # Calculate extreme temperatures
     all_temperatures = [t for t in temp_maxes + temp_mins if t is not None]
     weekly_min_temperature_celsius: float = min(all_temperatures) if all_temperatures else 0.0
     weekly_max_temperature_celsius: float = max(all_temperatures) if all_temperatures else 0.0
 
-    # Determine weekly weather summary (with/without precipitation)
     days_with_precipitation = sum(1 for p_sum in precipitation_sums if p_sum is not None and p_sum > 0)
     weekly_weather_summary: str = "with precipitation" if days_with_precipitation >= 4 else "without precipitation"
 
