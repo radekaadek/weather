@@ -1,16 +1,13 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	// --- KROK 1: Importujemy TYLKO TYPY na górze. Nie powodują one uruchomienia kodu. ---
 	import type { Map, Marker, Icon } from 'leaflet';
 
-	// --- Importy CSS i obrazów są bezpieczne, ponieważ Vite obsługuje je inaczej. ---
 	import 'leaflet/dist/leaflet.css';
 	import iconUrl from 'leaflet/dist/images/marker-icon.png';
 	import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 	import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
 
-	// --- DEFINICJE TYPÓW (bez zmian) ---
 	interface DailyForecast {
 		date: string;
 		weather_code: number;
@@ -27,7 +24,6 @@
 		weekly_weather_summary: string;
 	}
 
-	// --- ZMIENNE STANU (bez zmian) ---
 	let latitude: number = 52.23;
 	let longitude: number = 21.01;
 
@@ -58,7 +54,6 @@
 	}
 
 	async function getWeatherData(): Promise<void> {
-        // ... cała funkcja bez zmian
 		isLoading = true;
 		error = null;
 		forecastData = null;
@@ -90,17 +85,11 @@
 		}
 	}
 
-    // --- KROK 2: Zmieniamy onMount na funkcję asynchroniczną ---
 	onMount(async () => {
-		// Sprawdzenie `typeof window` jest redundantne w onMount, ale to dobra praktyka.
 		if (typeof window !== 'undefined') {
 			
-            // --- KROK 3: Dynamicznie importujemy bibliotekę Leaflet ---
-            // Kod w tym miejscu wykona się tylko w przeglądarce.
 			const L = (await import('leaflet')).default;
 
-			// --- KROK 4: Przenosimy logikę konfiguracji ikon DO onMount ---
-            // Teraz mamy pewność, że obiekt 'L' istnieje.
 			const defaultIcon: Icon = L.icon({
 				iconUrl: iconUrl,
 				iconRetinaUrl: iconRetinaUrl,
@@ -140,7 +129,6 @@
 			}
 		}
 
-		// Pobieramy dane pogodowe po zainicjowaniu mapy
 		getWeatherData();
 	});
 </script>
@@ -242,7 +230,7 @@
 	}
 
 	* { box-sizing: border-box; margin: 0; padding: 0; }
-	body { font-family: 'Inter', sans-serif; background-color: var(--bg-color); color: var(--text-color); line-height: 1.6; }
+	.container { font-family: 'Inter', sans-serif; background-color: var(--bg-color); color: var(--text-color); line-height: 1.6; }
 	.container { max-width: 900px; margin: 2rem auto; padding: 1rem; }
 	header { text-align: center; margin-bottom: 2rem; }
 	header h1 { font-size: 2.25rem; margin-bottom: 0.5rem; color: #0f172a; }

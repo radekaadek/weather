@@ -106,7 +106,7 @@ async def _fetch_open_meteo_data(
             return data
     except httpx.RequestError as exc:
         logger.error(f"Error connecting to Open-Meteo API for {cache_prefix}: {exc}")
-        raise HTTPException(status_code=500, detail=f"Error connecting to Open-Meteo API: {exc}")
+        raise HTTPException(status_code=500, detail=f"Error connecting to Open-Meteo API, probably rate-limited.")
     except httpx.HTTPStatusError as exc:
         logger.error(f"Error response from Open-Meteo API for {cache_prefix}: {exc.response.text}")
         raise HTTPException(
