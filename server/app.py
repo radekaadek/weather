@@ -1,5 +1,6 @@
 from typing import TypedDict, Annotated, cast
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import httpx
 from datetime import date, datetime
@@ -8,6 +9,14 @@ app = FastAPI(
     title="Weather and Solar Energy Forecast API",
     description="API for fetching 7-day weather forecast and estimating solar energy production.",
     version="1.0.0"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 OPEN_METEO_API_URL = "https://api.open-meteo.com/v1/forecast"
