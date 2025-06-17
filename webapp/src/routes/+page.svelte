@@ -135,12 +135,6 @@
 
 <svelte:head>
 	<title>Prognoza Pogody z Mapą</title>
-	<link rel="preconnect" href="https://fonts.googleapis.com" />
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-	<link
-		href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap"
-		rel="stylesheet"
-	/>
 </svelte:head>
 
 <main class="container">
@@ -268,25 +262,155 @@
 		font-weight: 500;
 	}
 
-	.error-box { background-color: var(--error-bg); color: var(--error-text); padding: 1rem; border-radius: 0.5rem; margin: 2rem 0; text-align: center; }
-	.loader { border: 5px solid #f3f3f3; border-top: 5px solid var(--primary-color); border-radius: 50%; width: 50px; height: 50px; animation: spin 1s linear infinite; margin: 2rem auto; }
-	@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-	.results-grid { display: grid; grid-template-columns: 1fr; gap: 1.5rem; }
-	@media (min-width: 768px) { .results-grid { grid-template-columns: 300px 1fr; align-items: start; } }
-	.summary-card, .forecast-section { background-color: var(--card-bg); padding: 1.5rem; border-radius: 0.75rem; box-shadow: var(--shadow); }
-	.summary-card h2, .forecast-section h2 { margin-bottom: 1.5rem; font-size: 1.25rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.75rem; }
-	.summary-card .summary-weather-info { text-align: center; margin-bottom: 1.5rem; font-size: 1.1rem; color: var(--text-secondary); }
-	.summary-card .summary-weather-info strong { color: var(--text-color); }
-	.summary-card ul { list-style: none; display: flex; flex-direction: column; gap: 1rem; }
-	.summary-card li { display: flex; justify-content: space-between; align-items: center; font-size: 1rem; color: var(--text-secondary); }
-	.summary-card li strong { color: var(--text-color); font-weight: 500; }
-	.forecast-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 1rem; }
-	.day-card { border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 1rem; text-align: center; display: flex; flex-direction: column; gap: 0.5rem; transition: transform 0.2s ease, box-shadow 0.2s ease; }
-	.day-card:hover { transform: translateY(-5px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); }
-	.day-card .date { font-weight: 500; font-size: 0.9rem; text-transform: capitalize; }
-	.day-card .weather-icon { font-size: 3rem; margin: 0.5rem 0; }
-	.day-card .temp { font-size: 1.1rem; font-weight: 500; display: flex; justify-content: center; gap: 0.75rem; }
-	.day-card .temp-max { color: var(--text-color); }
-	.day-card .temp-min { color: var(--text-secondary); }
-	.day-card .energy { display: flex; align-items: center; justify-content: center; gap: 0.25rem; font-size: 0.9rem; background-color: #fefce8; color: #a16207; padding: 0.25rem 0.5rem; border-radius: 999px; margin-top: 0.5rem; font-weight: 500; }
+  .error-box {
+    background-color: var(--error-bg);
+    color: var(--error-text);
+    padding: 1rem;
+    border-radius: 0.5rem;
+    margin: 2rem 0;
+    text-align: center;
+  }
+
+  .loader {
+      border: 5px solid #f3f3f3;
+      border-top: 5px solid var(--primary-color);
+      border-radius: 50%;
+      width: 50px;
+      height: 50px;
+      animation: spin 1s linear infinite;
+      margin: 2rem auto;
+  }
+
+  @keyframes spin {
+      0% {
+          transform: rotate(0deg);
+      }
+      100% {
+          transform: rotate(360deg);
+      }
+  }
+
+  .results-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1.5rem;
+  }
+
+  @media (min-width: 768px) {
+      .results-grid {
+          grid-template-columns: 300px 1fr;
+          align-items: start;
+      }
+  }
+
+  .summary-card,
+  .forecast-section {
+      background-color: var(--card-bg);
+      padding: 1.5rem;
+      border-radius: 0.75rem;
+      box-shadow: var(--shadow);
+  }
+
+  .summary-card h2,
+  .forecast-section h2 {
+      margin-bottom: 1.5rem;
+      font-size: 1.25rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 0.75rem;
+  }
+
+  .summary-card .summary-weather-info {
+      text-align: center;
+      margin-bottom: 1.5rem;
+      font-size: 1.1rem;
+      color: var(--text-secondary);
+  }
+
+  .summary-card .summary-weather-info strong {
+      color: var(--text-color);
+      font-weight: 500;
+  }
+
+  .summary-card ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+  }
+
+  .summary-card li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 1rem;
+      color: var(--text-secondary);
+  }
+
+  .summary-card li strong {
+      color: var(--text-color);
+      font-weight: 500;
+  }
+
+  .forecast-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 1rem;
+  }
+
+  .day-card {
+      border: 1px solid var(--border-color);
+      border-radius: 0.75rem;
+      padding: 1rem;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+
+  .day-card:hover {
+      transform: translateY(-5px);
+      box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  }
+
+  .day-card .date {
+      font-weight: 500;
+      font-size: 0.9rem;
+      text-transform: capitalize;
+  }
+
+  .day-card .weather-icon {
+      font-size: 3rem;
+      margin: 0.5rem 0;
+  }
+
+  .day-card .temp {
+      font-size: 1.1rem;
+      font-weight: 500;
+      display: flex;
+      justify-content: center;
+      gap: 0.75rem;
+  }
+
+  .day-card .temp-max {
+      color: var(--text-color);
+  }
+
+  .day-card .temp-min {
+      color: var(--text-secondary);
+  }
+
+  .day-card .energy {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.25rem;
+      font-size: 0.9rem;
+      background-color: #fefce8;
+      color: #a16207;
+      padding: 0.25rem 0.5rem;
+      border-radius: 999px;
+      margin-top: 0.5rem;
+      font-weight: 500;
+  }
 </style>
