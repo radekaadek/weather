@@ -9,6 +9,9 @@
 
     import DarkModeToggle from './DarkModeToggle.svelte';
 
+    const DEFAULT_LATITUDE = 52.23;
+    const DEFAULT_LONGITUDE = 21.01;
+
     let darkMode: boolean | null = null;
 
     interface DailyForecast {
@@ -27,8 +30,10 @@
         weekly_weather_summary: string;
     }
 
-    let latitude: number = 52.23;
-    let longitude: number = 21.01;
+    let latitude: number | null = null;
+    let longitude: number | null = null;
+    // let latitude: number = 52.23;
+    // let longitude: number = 21.01;
 
     let mapInstance: Map | null = null;
     let markerInstance: Marker | null = null;
@@ -57,6 +62,9 @@
     }
 
     async function getWeatherData(): Promise<void> {
+        if (latitude === null || longitude === null) {
+          return;
+        }
         isLoading = true;
         error = null;
         forecastData = null;
@@ -104,8 +112,10 @@
           markerInstance?.setLatLng([latitude, longitude]);
         });
       }
-      getWeatherData();
-
+      if (latitude === null || longitude === null) {
+        latitude = DEFAULT_LATITUDE;
+        longitude = DEFAULT_LONGITUDE;
+      }
       const L = await import('leaflet')
 
       const defaultIcon: Icon = L.icon({
@@ -122,27 +132,27 @@
 
       const mapContainer = document.getElementById('map-container');
       if (mapContainer) {
-          mapInstance = L.map(mapContainer).setView([latitude, longitude], 10);
+        mapInstance = L.map(mapContainer).setView([latitude, longitude], 10);
 
-          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-              attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          }).addTo(mapInstance);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(mapInstance);
 
-          markerInstance = L.marker([latitude, longitude], { draggable: true }).addTo(mapInstance);
+        markerInstance = L.marker([latitude, longitude], { draggable: true }).addTo(mapInstance);
 
-          mapInstance.on('click', (e) => {
-              const newCoords = e.latlng;
-              latitude = newCoords.lat;
-              longitude = newCoords.lng;
-              markerInstance?.setLatLng(newCoords);
-              getWeatherData();
-          });
+        mapInstance.on('click', (e) => {
+            const newCoords = e.latlng;
+            latitude = newCoords.lat;
+            longitude = newCoords.lng;
+            markerInstance?.setLatLng(newCoords);
+            getWeatherData();
+        });
 
-          markerInstance.on('drag', (e) => {
-              const newCoords = e.target.getLatLng();
-              latitude = newCoords.lat;
-              longitude = newCoords.lng;
-          });
+        markerInstance.on('drag', (e) => {
+            const newCoords = e.target.getLatLng();
+            latitude = newCoords.lat;
+            longitude = newCoords.lng;
+        });
 
         markerInstance.on('dragend', (e) => {
           const newCoords = e.target.getLatLng();
@@ -150,6 +160,7 @@
           longitude = newCoords.lng;
           getWeatherData();
         });
+        getWeatherData();
       }
     });
 </script>
@@ -172,8 +183,8 @@
     <div class="map-section">
       <div id="map-container" class="map-container"></div>
       <div class="coords-display">
-        <span>Szerokość: <strong>{latitude.toFixed(4)}</strong></span>
-        <span>Długość: <strong>{longitude.toFixed(4)}</strong></span>
+        <span>Szerokość: <strong>{latitude ? latitude.toFixed(4): "-"}</strong></span>
+        <span>Długość: <strong>{longitude ? longitude.toFixed(4): "-"}</strong></span>
       </div>
     </div>
 
