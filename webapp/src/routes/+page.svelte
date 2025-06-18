@@ -97,50 +97,60 @@
       if (elem) {
         elem.style.display = 'block';
       }
+      if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition((position) => {
+          latitude = position.coords.latitude;
+          longitude = position.coords.longitude;
+          markerInstance?.setLatLng([latitude, longitude]);
+        });
+      }
+      getWeatherData();
 
-            const L = await import('leaflet')
+      const L = await import('leaflet')
 
-            const defaultIcon: Icon = L.icon({
-                iconUrl: iconUrl,
-                iconRetinaUrl: iconRetinaUrl,
-                shadowUrl: shadowUrl,
-                iconSize: [25, 41],
-                iconAnchor: [12, 41],
-                popupAnchor: [1, -34],
-                tooltipAnchor: [16, -28],
-                shadowSize: [41, 41]
-            });
-            L.Marker.prototype.options.icon = defaultIcon;
+      const defaultIcon: Icon = L.icon({
+          iconUrl: iconUrl,
+          iconRetinaUrl: iconRetinaUrl,
+          shadowUrl: shadowUrl,
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          tooltipAnchor: [16, -28],
+          shadowSize: [41, 41]
+      });
+      L.Marker.prototype.options.icon = defaultIcon;
 
-            const mapContainer = document.getElementById('map-container');
-            if (mapContainer) {
-                mapInstance = L.map(mapContainer).setView([latitude, longitude], 10);
+      const mapContainer = document.getElementById('map-container');
+      if (mapContainer) {
+          mapInstance = L.map(mapContainer).setView([latitude, longitude], 10);
 
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                }).addTo(mapInstance);
+          L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+              attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          }).addTo(mapInstance);
 
-                markerInstance = L.marker([latitude, longitude], { draggable: true }).addTo(mapInstance);
+          markerInstance = L.marker([latitude, longitude], { draggable: true }).addTo(mapInstance);
 
-                mapInstance.on('click', (e) => {
-                    const newCoords = e.latlng;
-                    latitude = newCoords.lat;
-                    longitude = newCoords.lng;
-                    markerInstance?.setLatLng(newCoords);
-                    getWeatherData();
-                });
+          mapInstance.on('click', (e) => {
+              const newCoords = e.latlng;
+              latitude = newCoords.lat;
+              longitude = newCoords.lng;
+              markerInstance?.setLatLng(newCoords);
+              getWeatherData();
+          });
 
-                markerInstance.on('drag', (e) => {
-                    const newCoords = e.target.getLatLng();
-                    latitude = newCoords.lat;
-                    longitude = newCoords.lng;
-                });
+          markerInstance.on('drag', (e) => {
+              const newCoords = e.target.getLatLng();
+              latitude = newCoords.lat;
+              longitude = newCoords.lng;
+          });
 
-        markerInstance.on('dragend', (_) => {
+        markerInstance.on('dragend', (e) => {
+          const newCoords = e.target.getLatLng();
+          latitude = newCoords.lat;
+          longitude = newCoords.lng;
           getWeatherData();
         });
-            }
-        getWeatherData();
+      }
     });
 </script>
 
