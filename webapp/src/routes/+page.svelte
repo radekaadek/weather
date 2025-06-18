@@ -41,7 +41,8 @@
     let forecastData: DailyForecast[] | null = null;
     let summaryData: WeeklySummary | null = null;
     let isLoading: boolean = false;
-    let error: string | null = null;
+    let apiError: string | null = null;
+    let locationError: string | null = null;
 
     const API_BASE_URL: string = 'https://weather-2twl.onrender.com';
 
@@ -66,11 +67,11 @@
           return;
         }
         isLoading = true;
-        error = null;
+        apiError = null;
         forecastData = null;
         summaryData = null;
         if (latitude === null || longitude === null || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-            error = "Nieprawidłowe współrzędne geograficzne.";
+            apiError = "Nieprawidłowe współrzędne geograficzne.";
             isLoading = false;
             return;
         }
@@ -90,7 +91,7 @@
             summaryData = await summaryResponse.json();
         } catch (e: any) {
             console.error('Błąd pobierania danych:', e);
-            error = e.message || 'Nie udało się połączyć z serwerem. Upewnij się, że backend jest uruchomiony.';
+            apiError = e.message || 'Nie udało się połączyć z serwerem. Upewnij się, że backend jest uruchomiony.';
         } finally {
             isLoading = false;
         }
@@ -106,16 +107,29 @@
         elem.style.display = 'block';
       }
       if ("geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition((position) => {
+        try {
+          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(resolve, reject);
+          });
           latitude = position.coords.latitude;
           longitude = position.coords.longitude;
-          markerInstance?.setLatLng([latitude, longitude]);
-        });
+        } catch (e) {
+          console.error(e);
+          locationError = "Wystąpił błąd podczas pobierania lokalizacji.";
+          setTimeout(() => {
+            locationError = null;
+          }, 4000);
+        }
       }
       if (latitude === null || longitude === null) {
+        locationError = "Nie można uzyskać lokalizacji. Spróbuj ponownie później.";
+        setTimeout(() => {
+          locationError = null;
+        }, 4000);
         latitude = DEFAULT_LATITUDE;
         longitude = DEFAULT_LONGITUDE;
       }
+      markerInstance?.setLatLng([latitude, longitude]);
       const L = await import('leaflet')
 
       const defaultIcon: Icon = L.icon({
@@ -188,9 +202,15 @@
       </div>
     </div>
 
-    {#if error}
+    {#if locationError}
       <div class="error-box">
-        <p><strong>Wystąpił błąd:</strong> {error}</p>
+        <p><strong>Wystąpił błąd:</strong> {locationError}</p>
+      </div>
+    {/if}
+
+    {#if apiError}
+      <div class="error-box">
+        <p><strong>Wystąpił błąd:</strong> {apiError}</p>
       </div>
     {/if}
 
@@ -198,7 +218,7 @@
       <div class="loader"></div>
     {/if}
 
-    {#if !isLoading && !error && forecastData && summaryData}
+    {#if !isLoading && !apiError && forecastData && summaryData}
       <div class="results-grid">
         <section class="summary-card">
           <h2>Podsumowanie Tygodnia</h2>
