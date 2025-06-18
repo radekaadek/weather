@@ -7,12 +7,12 @@
   import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
   import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
-  import DarkModeToggle from './DarkModeToggle.svelte';
-  import MapSection from './MapSection.svelte';
-  import WeatherSummary from './WeatherSummary.svelte';
-  import DailyForecast from './DailyForecast.svelte';
-  import ErrorMessage from './ErrorMessage.svelte';
-  import LoadingSpinner from './LoadingSpinner.svelte';
+  import DarkModeToggle from '$lib/DarkModeToggle.svelte';
+  import MapSection from '$lib/MapSection.svelte';
+  import WeatherSummary from '$lib/WeatherSummary.svelte';
+  import DailyForecast from '$lib/DailyForecast.svelte';
+  import ErrorMessage from '$lib/ErrorMessage.svelte';
+  import LoadingSpinner from '$lib/LoadingSpinner.svelte';
 
   const DEFAULT_LATITUDE = 52.23;
   const DEFAULT_LONGITUDE = 21.01;
