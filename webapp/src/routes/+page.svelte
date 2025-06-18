@@ -35,7 +35,7 @@
 	let isLoading: boolean = false;
 	let error: string | null = null;
 
-	const API_BASE_URL: string = 'http://127.0.0.1:8000';
+	const API_BASE_URL: string = 'https://weather-2twl.onrender.com';
 
 	const weatherIcons: { [key: number]: string } = {
 		0: '☀️', 1: '🌤️', 2: '🌥️', 3: '☁️', 45: '🌫️', 48: '🌫️',
