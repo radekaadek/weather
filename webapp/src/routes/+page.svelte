@@ -244,7 +244,7 @@
 
 	* { box-sizing: border-box; margin: 0; padding: 0; }
 	.container { font-family: 'Inter', sans-serif; background-color: var(--card-bg); color: var(--text-color); line-height: 1.6; }
-	.container { max-width: 900px; margin: auto; padding: 1rem; }
+	.container { margin: auto; padding: 1rem; }
 	header { text-align: center; margin-bottom: 2rem; }
 	header h1 { font-size: 2.25rem; margin-bottom: 0.5rem; color: var(--title-color); }
 	header p { color: var(--text-secondary); font-size: 1.1rem; }
@@ -382,7 +382,7 @@
 
   .forecast-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
       gap: 1rem;
   }
 
