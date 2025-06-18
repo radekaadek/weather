@@ -21,7 +21,7 @@
 	}
 
 	interface WeeklySummary {
-		average_weekly_pressure_hPa: number;
+		average_weekly_prssure_hPa: number;
 		average_weekly_sunshine_hours: number;
 		weekly_min_temperature_celsius: number;
 		weekly_max_temperature_celsius: number;
@@ -90,12 +90,14 @@
 	}
 
 	onMount(async () => {
-      const savedTheme = localStorage.getItem('theme');
-      if (savedTheme === 'dark') {
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         darkMode = true;
-        document.documentElement.classList.add('dark');
+        document.body.classList.add('dark');
       }
-      document.body.style.display = 'set';
+      let elem = document.getElementById('main-div');
+      if (elem) {
+        elem.style.display = 'block';
+      }
 
 			const L = await import('leaflet')
 
@@ -139,98 +141,100 @@
 		getWeatherData();
 	});
 </script>
-
 <svelte:head>
 	<title>Prognoza Pogody z Mapą</title>
 </svelte:head>
 
+<div id="main-div">
   <div class="topright-corner">
     <DarkModeToggle darkMode={darkMode} />
   </div>
-<main class="container">
-	<header>
-		<h1>☀️ Prognoza Pogody i Energii Słonecznej</h1>
-		<p>Kliknij na mapę lub przeciągnij marker, aby wybrać lokalizację i zobaczyć prognozę.</p>
-	</header>
+  <main class="container">
+    <header>
+      <h1>☀️ Prognoza Pogody i Energii Słonecznej</h1>
+      <p>Kliknij na mapę lub przeciągnij marker, aby wybrać lokalizację i zobaczyć prognozę.</p>
+    </header>
 
-	<div class="map-section">
-		<div id="map-container" class="map-container"></div>
-		<div class="coords-display">
-			<span>Szerokość: <strong>{latitude.toFixed(4)}</strong></span>
-			<span>Długość: <strong>{longitude.toFixed(4)}</strong></span>
-		</div>
-	</div>
+    <div class="map-section">
+      <div id="map-container" class="map-container"></div>
+      <div class="coords-display">
+        <span>Szerokość: <strong>{latitude.toFixed(4)}</strong></span>
+        <span>Długość: <strong>{longitude.toFixed(4)}</strong></span>
+      </div>
+    </div>
 
-	{#if error}
-		<div class="error-box">
-			<p><strong>Wystąpił błąd:</strong> {error}</p>
-		</div>
-	{/if}
+    {#if error}
+      <div class="error-box">
+        <p><strong>Wystąpił błąd:</strong> {error}</p>
+      </div>
+    {/if}
 
-	{#if isLoading}
-		<div class="loader"></div>
-	{/if}
+    {#if isLoading}
+      <div class="loader"></div>
+    {/if}
 
-	{#if !isLoading && !error && forecastData && summaryData}
-		<div class="results-grid">
-			<section class="summary-card">
-				<h2>Podsumowanie Tygodnia</h2>
-				<p class="summary-weather-info">
-					Tydzień zapowiada się <strong>{summaryData.weekly_weather_summary}</strong>.
-				</p>
-				<ul>
-					<li>
-						<span>🌡️ Temp. Ekstremalne:</span>
-						<strong>
-							{summaryData.weekly_min_temperature_celsius.toFixed(1)}°C / {summaryData.weekly_max_temperature_celsius.toFixed(1)}°C
-						</strong>
-					</li>
-					<li>
-						<span>💨 Średnie ciśnienie:</span>
-						<strong>{summaryData.average_weekly_pressure_hPa.toFixed(1)} hPa</strong>
-					</li>
-					<li>
-						<span>☀️ Średnie nasłonecznienie:</span>
-						<strong>{summaryData.average_weekly_sunshine_hours.toFixed(1)} godz./dzień</strong>
-					</li>
-				</ul>
-			</section>
+    {#if !isLoading && !error && forecastData && summaryData}
+      <div class="results-grid">
+        <section class="summary-card">
+          <h2>Podsumowanie Tygodnia</h2>
+          <p class="summary-weather-info">
+            Tydzień zapowiada się <strong>{summaryData.weekly_weather_summary}</strong>.
+          </p>
+          <ul>
+            <li>
+              <span>🌡️ Temp. Ekstremalne:</span>
+              <strong>
+                {summaryData.weekly_min_temperature_celsius.toFixed(1)}°C / {summaryData.weekly_max_temperature_celsius.toFixed(1)}°C
+              </strong>
+            </li>
+            <li>
+              <span>💨 Średnie ciśnienie:</span>
+              <strong>{summaryData.average_weekly_pressure_hPa.toFixed(1)} hPa</strong>
+            </li>
+            <li>
+              <span>☀️ Średnie nasłonecznienie:</span>
+              <strong>{summaryData.average_weekly_sunshine_hours.toFixed(1)} godz./dzień</strong>
+            </li>
+          </ul>
+        </section>
 
-			<section class="forecast-section">
-				<h2>Prognoza na 7 dni</h2>
-				<div class="forecast-grid">
-					{#each forecastData as day (day.date)}
-						<div class="day-card">
-							<div class="date">{formatDate(day.date)}</div>
-							<div class="weather-icon">{weatherIcons[day.weather_code] || '❓'}</div>
-							<div class="temp">
-								<span class="temp-max">{day.temperature_max_celsius.toFixed(1)}°C</span>
-								<span class="temp-min">{day.temperature_min_celsius.toFixed(1)}°C</span>
-							</div>
-							<div class="energy">
-								<span class="energy-icon">⚡</span>
-								<span>{day.estimated_energy_kwh.toFixed(2)} kWh</span>
-							</div>
-						</div>
-					{/each}
-				</div>
-			</section>
-		</div>
-	{/if}
-</main>
+        <section class="forecast-section">
+          <h2>Prognoza na 7 dni</h2>
+          <div class="forecast-grid">
+            {#each forecastData as day (day.date)}
+              <div class="day-card">
+                <div class="date">{formatDate(day.date)}</div>
+                <div class="weather-icon">{weatherIcons[day.weather_code] || '❓'}</div>
+                <div class="temp">
+                  <span class="temp-max">{day.temperature_max_celsius.toFixed(1)}°C</span>
+                  <span class="temp-min">{day.temperature_min_celsius.toFixed(1)}°C</span>
+                </div>
+                <div class="energy">
+                  <span class="energy-icon">⚡</span>
+                  <span>{day.estimated_energy_kwh.toFixed(2)} kWh</span>
+                </div>
+              </div>
+            {/each}
+          </div>
+        </section>
+      </div>
+    {/if}
+  </main>
+</div>
 
 <style>
+
+  #main-div {
+    display: none;
+  }
+
   .topright-corner {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
     padding: 0.5rem;
-    background-color: var(--bg-color);
   }
 
   :global(body) {
     background-color: var(--bg-color);
-    display: var(--body-display);
+    transition: 0.2s;
   }
 
 	* { box-sizing: border-box; margin: 0; padding: 0; }
@@ -238,7 +242,6 @@
 	.container { max-width: 900px; margin: auto; padding: 1rem; }
 	header { text-align: center; margin-bottom: 2rem; }
 	header h1 { font-size: 2.25rem; margin-bottom: 0.5rem; color: var(--title-color); }
-    html.dark header h1 { color: var(--text-color); } /* Ensure header text changes in dark mode */
 	header p { color: var(--text-secondary); font-size: 1.1rem; }
 
 	.map-section {
@@ -257,7 +260,7 @@
 		margin-bottom: 1rem;
 		background-color: #e2e8f0; /* Tło na czas ładowania kafelków */
 	}
-    html.dark .map-container { background-color: #4a5568; } /* Dark mode map background */
+  :global(body.dark) .map-container { background-color: var(--card-bg); } /* Dark mode map background */
 	
 	.coords-display {
 		display: flex;
@@ -268,10 +271,10 @@
 		border-radius: 0.5rem;
 		color: var(--text-secondary);
 	}
-    html.dark .coords-display {
-        background-color: #2d3748;
-        color: var(--text-secondary);
-    }
+  :global(body.dark) .coords-display {
+      background-color: #2d3748;
+      color: var(--text-secondary);
+  }
 
 	.coords-display strong {
 		color: var(--text-color);
@@ -296,9 +299,9 @@
       animation: spin 1s linear infinite;
       margin: 2rem auto;
   }
-  html.dark .loader {
-      border-color: #4a5568;
-      border-top-color: var(--primary-color);
+  :global(body.dark) .loader {
+    border-color: #4a5568;
+    border-top-color: var(--primary-color);
   }
 
 
@@ -393,9 +396,9 @@
       transform: translateY(-5px);
       box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
   }
-    html.dark .day-card:hover {
-        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.2);
-    }
+  :global(body.dark) .day-card:hover {
+      box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.2);
+  }
 
 
   .day-card .date {
@@ -437,5 +440,39 @@
       border-radius: 999px;
       margin-top: 0.5rem;
       font-weight: 500;
+  }
+  
+  :global(body) {
+    --bg-color: #f0f4f8;
+    --card-bg: #ffffff;
+    --text-color: #1e293b;
+    --title-color: #0f172a;
+    --text-secondary: #475569;
+    --primary-color: #3b82f6;
+    --primary-hover: #2563eb;
+    --border-color: #e2e8f0;
+    --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --error-bg: #fee2e2;
+    --error-text: #b91c1c;
+        --energy-bg: #fefce8padding
+        --energy-text: #a16207;
+  }
+
+
+  /* Dark Mode Styles */
+  :global(body.dark) {
+      --bg-color: #1a202c;
+      --card-bg: #2d3748;
+      --text-color: #e2e8f0;
+      --text-secondary: #a0aec0;
+      --primary-color: #63b3ed;
+      --primary-hover: #4299e1;
+      --border-color: #4a5568;
+      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
+      --error-bg: #4c0519;
+      --error-text: #fecaca;
+      --energy-bg: #3a3a2e;
+      --energy-text: #f6e05e;
+      --title-color: #8d51ff;
   }
 </style>
