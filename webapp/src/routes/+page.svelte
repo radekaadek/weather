@@ -149,10 +149,11 @@
 </svelte:head>
 
 <div id="main-div">
-  <div class="topright-corner">
-    <DarkModeToggle darkMode={darkMode} />
-  </div>
   <main class="container">
+    <div class="topright-corner">
+      <DarkModeToggle darkMode={darkMode} />
+    </div>
+
     <header>
       <h1>☀️ Prognoza Pogody i Energii Słonecznej</h1>
       <p>Kliknij na mapę lub przeciągnij marker, aby wybrać lokalizację i zobaczyć prognozę.</p>
@@ -232,19 +233,25 @@
   }
 
   .topright-corner {
-    padding: 0.5rem;
+    padding-right: 0.5rem;
+    padding-left: 0.5rem;
+    margin: auto;
+    padding-top: 0rem;
     justify-content: flex-end;
     display: flex;
+    float: right;
   }
 
   :global(body) {
     background-color: var(--bg-color);
     transition: 0.2s;
+    margin: 0;
+    padding: 0;
   }
 
 	* { box-sizing: border-box; margin: 0; padding: 0; }
 	.container { font-family: 'Inter', sans-serif; background-color: var(--card-bg); color: var(--text-color); line-height: 1.6; }
-	.container { margin: auto; padding: 1rem; }
+	.container { margin: auto; padding: 1rem; margin-bottom: 1rem; margin-top: 2rem; }
 	header { text-align: center; margin-bottom: 2rem; }
 	header h1 { font-size: 2.25rem; margin-bottom: 0.5rem; color: var(--title-color); }
 	header p { color: var(--text-secondary); font-size: 1.1rem; }
