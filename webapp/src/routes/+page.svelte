@@ -40,7 +40,7 @@
 
     let forecastData: DailyForecast[] | null = null;
     let summaryData: WeeklySummary | null = null;
-    let isLoading: boolean = false;
+    let isLoading: boolean = true;
     let apiError: string | null = null;
     let locationError: string | null = null;
 
