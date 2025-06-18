@@ -131,12 +131,15 @@
 					getWeatherData();
 				});
 
-				markerInstance.on('dragend', (e) => {
+				markerInstance.on('drag', (e) => {
 					const newCoords = e.target.getLatLng();
 					latitude = newCoords.lat;
 					longitude = newCoords.lng;
-					getWeatherData();
 				});
+
+        markerInstance.on('dragend', (e) => {
+          getWeatherData();
+        });
 			}
 		getWeatherData();
 	});
@@ -230,6 +233,8 @@
 
   .topright-corner {
     padding: 0.5rem;
+    justify-content: flex-end;
+    display: flex;
   }
 
   :global(body) {

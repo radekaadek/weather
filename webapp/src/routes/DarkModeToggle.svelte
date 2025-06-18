@@ -12,7 +12,7 @@
 </script>
 
 <button on:click={toggleDarkMode}
-        class="h-10 w-10 rounded-2xl p-2 flex items-center justify-center
+        class="h-10 w-10 rounded-2xl p-2 flex items-center justify-center cursor-pointer
                bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700
                text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:ring-opacity-75"
         aria-label="Toggle dark mode">
