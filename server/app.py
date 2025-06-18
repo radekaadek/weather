@@ -68,7 +68,7 @@ class OpenMeteoResponse(TypedDict):
 
 cache: TTLCache[str, OpenMeteoResponse] = TTLCache(maxsize=100, ttl=60)
 
-async def _fetch_open_meteo_data(
+async def fetch_open_meteo_data_internal(
     latitude: float,
     longitude: float,
     cache_prefix: str,
@@ -123,7 +123,7 @@ async def fetch_forecast_data(latitude: float, longitude: float) -> OpenMeteoRes
     Helper function to get daily forecast data from Open-Meteo API with caching.
     """
     daily_fields = ["weather_code", "temperature_2m_max", "temperature_2m_min", "sunshine_duration"]
-    return await _fetch_open_meteo_data(
+    return await fetch_open_meteo_data_internal(
         latitude=latitude,
         longitude=longitude,
         cache_prefix="forecast",
@@ -137,7 +137,7 @@ async def fetch_summary_data(latitude: float, longitude: float) -> OpenMeteoResp
     """
     daily_fields = ["temperature_2m_max", "temperature_2m_min", "sunshine_duration", "precipitation_sum"]
     hourly_fields = ["pressure_msl"]
-    return await _fetch_open_meteo_data(
+    return await fetch_open_meteo_data_internal(
         latitude=latitude,
         longitude=longitude,
         cache_prefix="summary",
