@@ -249,7 +249,7 @@ async def get_weekly_summary(
     weekly_max_temperature_celsius: float = max(all_temperatures) if all_temperatures else 0.0
 
     days_with_precipitation = sum(1 for p_sum in precipitation_sums if p_sum is not None and p_sum > 0)
-    weekly_weather_summary: str = "with precipitation" if days_with_precipitation >= 4 else "without precipitation"
+    weekly_weather_summary: str = "z opadami" if days_with_precipitation >= 4 else "bez opadów"
 
     return WeeklySummary(
         average_weekly_pressure_hPa=average_weekly_pressure_hPa,
