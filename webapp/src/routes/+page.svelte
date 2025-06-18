@@ -10,8 +10,7 @@
   // Import the new DarkModeToggle component
   import DarkModeToggle from './DarkModeToggle.svelte';
 
-  // get the current dark mode preference from local storage
-  let darkMode: boolean = false;
+  let darkMode: boolean | null = null;
 
 	interface DailyForecast {
 		date: string;
@@ -91,13 +90,14 @@
 	}
 
 	onMount(async () => {
-      // get the current dark mode preference from user's browser settings
-      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      const savedTheme = localStorage.getItem('theme');
+      if (savedTheme === 'dark') {
         darkMode = true;
         document.documentElement.classList.add('dark');
       }
-			
-			const L = (await import('leaflet')).default;
+      document.body.style.display = 'set';
+
+			const L = await import('leaflet')
 
 			const defaultIcon: Icon = L.icon({
 				iconUrl: iconUrl,
@@ -144,7 +144,7 @@
 	<title>Prognoza Pogody z Mapą</title>
 </svelte:head>
 
-  <div class="topleft-corner">
+  <div class="topright-corner">
     <DarkModeToggle darkMode={darkMode} />
   </div>
 <main class="container">
@@ -220,47 +220,24 @@
 </main>
 
 <style>
-	:root {
-		--bg-color: #f0f4f8;
-		--card-bg: #ffffff;
-		--text-color: #1e293b;
-		--text-secondary: #475569;
-		--primary-color: #3b82f6;
-		--primary-hover: #2563eb;
-		--border-color: #e2e8f0;
-		--shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-		--error-bg: #fee2e2;
-		--error-text: #b91c1c;
-        --energy-bg: #fefce8;
-        --energy-text: #a16207;
-	}
+  .topright-corner {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: 0.5rem;
+    background-color: var(--bg-color);
+  }
 
-    /* Dark Mode Styles */
-    html.dark {
-        --bg-color: #1a202c;
-        --card-bg: #2d3748;
-        --text-color: #e2e8f0;
-        --text-secondary: #a0aec0;
-        --primary-color: #63b3ed;
-        --primary-hover: #4299e1;
-        --border-color: #4a5568;
-        --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
-        --error-bg: #4c0519;
-        --error-text: #fecaca;
-        --energy-bg: #3a3a2e;
-        --energy-text: #f6e05e;
-    }
-
-  .topleft-corner {
-    align-items: left;
-    margin-bottom: 0px;
+  :global(body) {
+    background-color: var(--bg-color);
+    display: var(--body-display);
   }
 
 	* { box-sizing: border-box; margin: 0; padding: 0; }
-	.container { font-family: 'Inter', sans-serif; background-color: var(--bg-color); color: var(--text-color); line-height: 1.6; }
+	.container { font-family: 'Inter', sans-serif; background-color: var(--card-bg); color: var(--text-color); line-height: 1.6; }
 	.container { max-width: 900px; margin: auto; padding: 1rem; }
 	header { text-align: center; margin-bottom: 2rem; }
-	header h1 { font-size: 2.25rem; margin-bottom: 0.5rem; color: #0f172a; }
+	header h1 { font-size: 2.25rem; margin-bottom: 0.5rem; color: var(--title-color); }
     html.dark header h1 { color: var(--text-color); } /* Ensure header text changes in dark mode */
 	header p { color: var(--text-secondary); font-size: 1.1rem; }
 
@@ -287,7 +264,7 @@
 		gap: 1.5rem;
 		justify-content: center;
 		padding: 0.5rem;
-		background-color: #f8fafc;
+		background-color: var(--bg-color);
 		border-radius: 0.5rem;
 		color: var(--text-secondary);
 	}
