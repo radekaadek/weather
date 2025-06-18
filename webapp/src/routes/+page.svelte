@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import type { Map, Marker, Icon } from 'leaflet';
+  import type { Map, Marker, Icon, TileLayer } from 'leaflet';
 
   import 'leaflet/dist/leaflet.css';
   import iconUrl from 'leaflet/dist/images/marker-icon.png';
@@ -13,6 +13,9 @@
   import DailyForecast from '$lib/DailyForecast.svelte';
   import ErrorMessage from '$lib/ErrorMessage.svelte';
   import LoadingSpinner from '$lib/LoadingSpinner.svelte';
+
+  type leafletMap = typeof import('leaflet');
+  type LayerControl = any;
 
   const DEFAULT_LATITUDE = 52.23;
   const DEFAULT_LONGITUDE = 21.01;
@@ -42,6 +45,8 @@
     weekly_weather_summary: string;
   }
 
+  let L: leafletMap | null = null;
+
   let darkMode: boolean | null = null;
   let latitude: number | null = null;
   let longitude: number | null = null;
@@ -54,6 +59,28 @@
   let locationError: string | null = null;
 
   let mapContainerElement: HTMLDivElement;
+  let cartoDarkLayer: TileLayer | null = null;
+  let osmTopoLayer: TileLayer | null = null;
+  let layerControl: LayerControl | null = null;
+
+  $: themeChange(darkMode);
+
+  function themeChange(darkMode: boolean | null) {
+    if (!L || !mapInstance) return;
+
+    if (cartoDarkLayer && mapInstance.hasLayer(cartoDarkLayer)) {
+      mapInstance.removeLayer(cartoDarkLayer);
+    }
+    if (osmTopoLayer && mapInstance.hasLayer(osmTopoLayer)) {
+      mapInstance.removeLayer(osmTopoLayer);
+    }
+
+    if (darkMode === true) {
+      cartoDarkLayer?.addTo(mapInstance);
+    } else {
+      osmTopoLayer?.addTo(mapInstance);
+    }
+  }
 
   function areValidCoordinates(lat: number | null, lng: number | null): boolean {
     return lat !== null && lng !== null &&
@@ -129,7 +156,7 @@
     longitude = DEFAULT_LONGITUDE;
   }
 
-  function setupLeafletDefaults(L: any): void {
+  function setupLeafletDefaults(L: leafletMap): void {
     const defaultIcon: Icon = L.icon({
       iconUrl: iconUrl,
       iconRetinaUrl: iconRetinaUrl,
@@ -143,14 +170,43 @@
     L.Marker.prototype.options.icon = defaultIcon;
   }
 
-  function initializeMap(L: any, mapContainer: Element): void {
+  function addLayersToMap(L: leafletMap, mapInstance: Map): void {
+    console.log('addLayersToMap');
+    if (mapInstance === null) return;
+
+    osmTopoLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    })
+    cartoDarkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 20,
+      minZoom: 2
+    })
+
+    if (cartoDarkLayer !== null && osmTopoLayer !== null && mapInstance !== null) {
+      if (darkMode === true) {
+        cartoDarkLayer.addTo(mapInstance);
+      } else {
+        osmTopoLayer.addTo(mapInstance);
+      }
+    }
+
+    const tileLayers = {
+      "OpenStreetMap": osmTopoLayer,
+      "CartoDark": cartoDarkLayer
+    }
+
+    layerControl = L.control.layers(tileLayers)
+    layerControl.addTo(mapInstance);
+  }
+
+  function initializeMap(L: leafletMap, mapContainer: HTMLElement): void {
     if (!areValidCoordinates(latitude, longitude)) return;
 
     mapInstance = L.map(mapContainer).setView([latitude!, longitude!], 10);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(mapInstance);
+    addLayersToMap(L, mapInstance);
 
     markerInstance = L.marker([latitude!, longitude!], { draggable: true }).addTo(mapInstance);
     setupMapEventListeners();
@@ -187,6 +243,8 @@
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       darkMode = true;
       document.body.classList.add('dark');
+    } else {
+      darkMode = false; // Set initial darkMode to false if not dark mode
     }
   }
 
@@ -201,10 +259,10 @@
     initializeDarkMode();
     showMainDiv();
 
-    const [L, position] = await Promise.all([
-      import('leaflet'),
-      getCurrentLocation()
-    ]);
+    const LPromise = import('leaflet');
+    const PositionPromise = getCurrentLocation();
+    L = await LPromise;
+    const position = await PositionPromise;
 
     setupLeafletDefaults(L);
 
@@ -244,7 +302,7 @@
 <div id="main-div">
   <main class="container">
     <div class="topright-corner">
-      <DarkModeToggle {darkMode} />
+      <DarkModeToggle bind:darkMode />
     </div>
 
     <header>
