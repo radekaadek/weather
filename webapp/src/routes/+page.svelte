@@ -106,7 +106,31 @@
       if (elem) {
         elem.style.display = 'block';
       }
+      const LPromise = import('leaflet')
+
+      let positionPromise: Promise<GeolocationPosition> | null = null;
       if ("geolocation" in navigator) {
+        positionPromise = new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject);
+        });
+      }
+
+      const L = await LPromise
+
+      const defaultIcon: Icon = L.icon({
+          iconUrl: iconUrl,
+          iconRetinaUrl: iconRetinaUrl,
+          shadowUrl: shadowUrl,
+          iconSize: [25, 41],
+          iconAnchor: [12, 41],
+          popupAnchor: [1, -34],
+          tooltipAnchor: [16, -28],
+          shadowSize: [41, 41]
+      });
+      L.Marker.prototype.options.icon = defaultIcon;
+
+      const mapContainer = document.getElementById('map-container');
+      if (positionPromise !== null) {
         try {
           const position = await new Promise<GeolocationPosition>((resolve, reject) => {
             navigator.geolocation.getCurrentPosition(resolve, reject);
@@ -130,21 +154,6 @@
         longitude = DEFAULT_LONGITUDE;
       }
       markerInstance?.setLatLng([latitude, longitude]);
-      const L = await import('leaflet')
-
-      const defaultIcon: Icon = L.icon({
-          iconUrl: iconUrl,
-          iconRetinaUrl: iconRetinaUrl,
-          shadowUrl: shadowUrl,
-          iconSize: [25, 41],
-          iconAnchor: [12, 41],
-          popupAnchor: [1, -34],
-          tooltipAnchor: [16, -28],
-          shadowSize: [41, 41]
-      });
-      L.Marker.prototype.options.icon = defaultIcon;
-
-      const mapContainer = document.getElementById('map-container');
       if (mapContainer) {
         mapInstance = L.map(mapContainer).setView([latitude, longitude], 10);
 
