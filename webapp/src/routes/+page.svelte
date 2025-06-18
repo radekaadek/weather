@@ -1,13 +1,18 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { Map, Marker, Icon } from 'leaflet';
-  
+
   import 'leaflet/dist/leaflet.css';
   import iconUrl from 'leaflet/dist/images/marker-icon.png';
   import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
   import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
-  
+
   import DarkModeToggle from './DarkModeToggle.svelte';
+  import MapSection from './MapSection.svelte';
+  import WeatherSummary from './WeatherSummary.svelte';
+  import DailyForecast from './DailyForecast.svelte';
+  import ErrorMessage from './ErrorMessage.svelte';
+  import LoadingSpinner from './LoadingSpinner.svelte';
 
   const DEFAULT_LATITUDE = 52.23;
   const DEFAULT_LONGITUDE = 21.01;
@@ -48,18 +53,11 @@
   let apiError: string | null = null;
   let locationError: string | null = null;
 
-  function formatDate(dateString: string): string {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('pl-PL', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'short'
-    }).format(date);
-  }
+  let mapContainerElement: HTMLDivElement;
 
   function areValidCoordinates(lat: number | null, lng: number | null): boolean {
-    return lat !== null && lng !== null && 
-           lat >= -90 && lat <= 90 && 
+    return lat !== null && lng !== null &&
+           lat >= -90 && lat <= 90 &&
            lng >= -180 && lng <= 180;
   }
 
@@ -87,7 +85,7 @@
     try {
       const forecastUrl = `${API_BASE_URL}/forecast?latitude=${latitude}&longitude=${longitude}`;
       const summaryUrl = `${API_BASE_URL}/summary?latitude=${latitude}&longitude=${longitude}`;
-      
+
       const [forecastResponse, summaryResponse] = await Promise.all([
         fetch(forecastUrl),
         fetch(summaryUrl)
@@ -148,13 +146,13 @@
   function initializeMap(L: any, mapContainer: Element): void {
     if (!areValidCoordinates(latitude, longitude)) return;
 
-    mapInstance = L.map(mapContainer).setView([latitude, longitude], 10);
+    mapInstance = L.map(mapContainer).setView([latitude!, longitude!], 10);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(mapInstance);
 
-    markerInstance = L.marker([latitude, longitude], { draggable: true }).addTo(mapInstance);
+    markerInstance = L.marker([latitude!, longitude!], { draggable: true }).addTo(mapInstance);
     setupMapEventListeners();
   }
 
@@ -217,14 +215,26 @@
       setDefaultLocation();
     }
 
-    markerInstance?.setLatLng([latitude!, longitude!]);
-
-    const mapContainer = document.getElementById('map-container');
-    if (mapContainer) {
-      initializeMap(L, mapContainer);
+    if (mapContainerElement) {
+      initializeMap(L, mapContainerElement);
       getWeatherData();
     }
   });
+
+  function handleMapClick(event: { detail: { lat: number, lng: number } }) {
+    updateCoordinates(event.detail.lat, event.detail.lng);
+    markerInstance?.setLatLng([event.detail.lat, event.detail.lng]);
+    getWeatherData();
+  }
+
+  function handleMarkerDrag(event: { detail: { lat: number, lng: number } }) {
+    updateCoordinates(event.detail.lat, event.detail.lng);
+  }
+
+  function handleMarkerDragEnd(event: { detail: { lat: number, lng: number } }) {
+    updateCoordinates(event.detail.lat, event.detail.lng);
+    getWeatherData();
+  }
 </script>
 
 <svelte:head>
@@ -243,73 +253,30 @@
     </header>
 
     {#if locationError}
-      <div class="error-box">
-        <p><strong>Wystąpił błąd:</strong> {locationError}</p>
-      </div>
+      <ErrorMessage message={locationError} />
     {/if}
 
-    <div class="map-section">
-      <div id="map-container" class="map-container"></div>
-      <div class="coords-display">
-        <span>Szerokość: <strong>{latitude ? latitude.toFixed(4) : "-"}</strong></span>
-        <span>Długość: <strong>{longitude ? longitude.toFixed(4) : "-"}</strong></span>
-      </div>
-    </div>
+    <MapSection
+      bind:mapContainerRef={mapContainerElement}
+      bind:latitude
+      bind:longitude
+      on:mapClick={handleMapClick}
+      on:markerDrag={handleMarkerDrag}
+      on:markerDragEnd={handleMarkerDragEnd}
+    />
 
     {#if apiError}
-      <div class="error-box">
-        <p><strong>Wystąpił błąd:</strong> {apiError}</p>
-      </div>
+      <ErrorMessage message={apiError} />
     {/if}
 
     {#if isLoading}
-      <div class="loader"></div>
+      <LoadingSpinner />
     {/if}
 
     {#if !isLoading && !apiError && forecastData && summaryData}
       <div class="results-grid">
-        <section class="summary-card">
-          <h2>Podsumowanie Tygodnia</h2>
-          <p class="summary-weather-info">
-            Tydzień zapowiada się <strong>{summaryData.weekly_weather_summary}</strong>.
-          </p>
-          <ul>
-            <li>
-              <span>🌡️ Temp. Ekstremalne:</span>
-              <strong>
-                {summaryData.weekly_min_temperature_celsius.toFixed(1)}°C / {summaryData.weekly_max_temperature_celsius.toFixed(1)}°C
-              </strong>
-            </li>
-            <li>
-              <span>💨 Średnie ciśnienie:</span>
-              <strong>{summaryData.average_weekly_pressure_hPa.toFixed(1)} hPa</strong>
-            </li>
-            <li>
-              <span>☀️ Średnie nasłonecznienie:</span>
-              <strong>{summaryData.average_weekly_sunshine_hours.toFixed(1)} godz./dzień</strong>
-            </li>
-          </ul>
-        </section>
-
-        <section class="forecast-section">
-          <h2>Prognoza na 7 dni</h2>
-          <div class="forecast-grid">
-            {#each forecastData as day (day.date)}
-              <div class="day-card">
-                <div class="date">{formatDate(day.date)}</div>
-                <div class="weather-icon">{weatherIcons[day.weather_code] || '❓'}</div>
-                <div class="temp">
-                  <span class="temp-max">{day.temperature_max_celsius.toFixed(1)}°C</span>
-                  <span class="temp-min">{day.temperature_min_celsius.toFixed(1)}°C</span>
-                </div>
-                <div class="energy">
-                  <span class="energy-icon">⚡</span>
-                  <span>{day.estimated_energy_kwh.toFixed(2)} kWh</span>
-                </div>
-              </div>
-            {/each}
-          </div>
-        </section>
+        <WeatherSummary {summaryData} />
+        <DailyForecast {forecastData} {weatherIcons} />
       </div>
     {/if}
   </main>
@@ -337,107 +304,37 @@
     padding: 0;
   }
 
-  * { 
-    box-sizing: border-box; 
-    margin: 0; 
-    padding: 0; 
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
   }
 
-  .container { 
-    font-family: 'Inter', sans-serif; 
-    background-color: var(--card-bg); 
-    color: var(--text-color); 
+  .container {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--card-bg);
+    color: var(--text-color);
     line-height: 1.6;
-    margin: auto; 
-    padding: 1rem; 
-    margin-bottom: 1rem; 
+    margin: auto;
+    padding: 1rem;
+    margin-bottom: 1rem;
     margin-top: 2rem;
   }
 
-  header { 
-    text-align: center; 
-    margin-bottom: 2rem; 
-  }
-
-  header h1 { 
-    font-size: 2.25rem; 
-    margin-bottom: 0.5rem; 
-    color: var(--title-color); 
-  }
-
-  header p { 
-    color: var(--text-secondary); 
-    font-size: 1.1rem; 
-  }
-
-  .map-section {
-    margin-bottom: 2rem;
-    background-color: var(--card-bg);
-    border-radius: 0.75rem;
-    box-shadow: var(--shadow);
-    padding: 1rem;
-  }
-
-  .map-container {
-    height: 400px;
-    width: 100%;
-    border-radius: 0.5rem;
-    border: 1px solid var(--border-color);
-    margin-bottom: 1rem;
-    background-color: #e2e8f0;
-  }
-
-  :global(body.dark) .map-container { 
-    background-color: var(--card-bg); 
-  }
-    
-  .coords-display {
-    display: flex;
-    gap: 1.5rem;
-    justify-content: center;
-    padding: 0.5rem;
-    background-color: var(--bg-color);
-    border-radius: 0.5rem;
-    color: var(--text-secondary);
-  }
-
-  :global(body.dark) .coords-display {
-    background-color: #2d3748;
-    color: var(--text-secondary);
-  }
-
-  .coords-display strong {
-    color: var(--text-color);
-    font-weight: 500;
-  }
-
-  .error-box {
-    background-color: var(--error-bg);
-    color: var(--error-text);
-    padding: 1rem;
-    border-radius: 0.5rem;
-    margin: 2rem 0;
+  header {
     text-align: center;
+    margin-bottom: 2rem;
   }
 
-  .loader {
-    border: 5px solid #f3f3f3;
-    border-top: 5px solid var(--primary-color);
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    animation: spin 1s linear infinite;
-    margin: 2rem auto;
+  header h1 {
+    font-size: 2.25rem;
+    margin-bottom: 0.5rem;
+    color: var(--title-color);
   }
 
-  :global(body.dark) .loader {
-    border-color: #4a5568;
-    border-top-color: var(--primary-color);
-  }
-
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+  header p {
+    color: var(--text-secondary);
+    font-size: 1.1rem;
   }
 
   .results-grid {
@@ -453,121 +350,6 @@
     }
   }
 
-  .summary-card,
-  .forecast-section {
-    background-color: var(--card-bg);
-    padding: 1.5rem;
-    border-radius: 0.75rem;
-    box-shadow: var(--shadow);
-  }
-
-  .summary-card h2,
-  .forecast-section h2 {
-    margin-bottom: 1.5rem;
-    font-size: 1.25rem;
-    border-bottom: 1px solid var(--border-color);
-    padding-bottom: 0.75rem;
-  }
-
-  .summary-card .summary-weather-info {
-    text-align: center;
-    margin-bottom: 1.5rem;
-    font-size: 1.1rem;
-    color: var(--text-secondary);
-  }
-
-  .summary-card .summary-weather-info strong {
-    color: var(--text-color);
-    font-weight: 500;
-  }
-
-  .summary-card ul {
-    list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: 1rem;
-  }
-
-  .summary-card li {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 1rem;
-    color: var(--text-secondary);
-  }
-
-  .summary-card li strong {
-    color: var(--text-color);
-    font-weight: 500;
-  }
-
-  .forecast-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-    gap: 1rem;
-  }
-
-  .day-card {
-    border: 1px solid var(--border-color);
-    border-radius: 0.75rem;
-    padding: 1rem;
-    text-align: center;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-  }
-
-  .day-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  }
-
-  :global(body.dark) .day-card:hover {
-    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.2);
-  }
-
-  .day-card .date {
-    font-weight: 500;
-    font-size: 0.9rem;
-    text-transform: capitalize;
-  }
-
-  .day-card .weather-icon {
-    font-size: 3rem;
-    margin: 0.5rem 0;
-  }
-
-  .day-card .temp {
-    font-size: 1.1rem;
-    font-weight: 500;
-    display: flex;
-    justify-content: center;
-    gap: 0.75rem;
-  }
-
-  .day-card .temp-max {
-    color: var(--text-color);
-  }
-
-  .day-card .temp-min {
-    color: var(--text-secondary);
-  }
-
-  .day-card .energy {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.25rem;
-    font-size: 0.9rem;
-    background-color: var(--energy-bg);
-    color: var(--energy-text);
-    padding: 0.25rem 0.5rem;
-    border-radius: 999px;
-    margin-top: 0.5rem;
-    font-weight: 500;
-  }
-  
   :global(body) {
     --bg-color: #f0f4f8;
     --card-bg: #ffffff;
