@@ -122,7 +122,7 @@
         }
       }
       if (latitude === null || longitude === null) {
-        locationError = "Nie można uzyskać lokalizacji. Spróbuj ponownie później.";
+        locationError = "Nie można uzyskać lokalizacji.";
         setTimeout(() => {
           locationError = null;
         }, 4000);
@@ -194,6 +194,12 @@
       <p>Kliknij na mapę lub przeciągnij marker, aby wybrać lokalizację i zobaczyć prognozę.</p>
     </header>
 
+    {#if locationError}
+      <div class="error-box">
+        <p><strong>Wystąpił błąd:</strong> {locationError}</p>
+      </div>
+    {/if}
+
     <div class="map-section">
       <div id="map-container" class="map-container"></div>
       <div class="coords-display">
@@ -202,11 +208,6 @@
       </div>
     </div>
 
-    {#if locationError}
-      <div class="error-box">
-        <p><strong>Wystąpił błąd:</strong> {locationError}</p>
-      </div>
-    {/if}
 
     {#if apiError}
       <div class="error-box">
