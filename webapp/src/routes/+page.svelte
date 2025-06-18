@@ -1,95 +1,94 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
-	import type { Map, Marker, Icon } from 'leaflet';
+    import { onMount } from 'svelte';
+    import type { Map, Marker, Icon } from 'leaflet';
 
-	import 'leaflet/dist/leaflet.css';
-	import iconUrl from 'leaflet/dist/images/marker-icon.png';
-	import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
-	import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
+    import 'leaflet/dist/leaflet.css';
+    import iconUrl from 'leaflet/dist/images/marker-icon.png';
+    import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
+    import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
-  // Import the new DarkModeToggle component
-  import DarkModeToggle from './DarkModeToggle.svelte';
+    import DarkModeToggle from './DarkModeToggle.svelte';
 
-  let darkMode: boolean | null = null;
+    let darkMode: boolean | null = null;
 
-	interface DailyForecast {
-		date: string;
-		weather_code: number;
-		temperature_min_celsius: number;
-		temperature_max_celsius: number;
-		estimated_energy_kwh: number;
-	}
+    interface DailyForecast {
+        date: string;
+        weather_code: number;
+        temperature_min_celsius: number;
+        temperature_max_celsius: number;
+        estimated_energy_kwh: number;
+    }
 
-	interface WeeklySummary {
-		average_weekly_prssure_hPa: number;
-		average_weekly_sunshine_hours: number;
-		weekly_min_temperature_celsius: number;
-		weekly_max_temperature_celsius: number;
-		weekly_weather_summary: string;
-	}
+    interface WeeklySummary {
+        average_weekly_pressure_hPa: number;
+        average_weekly_sunshine_hours: number;
+        weekly_min_temperature_celsius: number;
+        weekly_max_temperature_celsius: number;
+        weekly_weather_summary: string;
+    }
 
-	let latitude: number = 52.23;
-	let longitude: number = 21.01;
+    let latitude: number = 52.23;
+    let longitude: number = 21.01;
 
-	let mapInstance: Map | null = null;
-	let markerInstance: Marker | null = null;
+    let mapInstance: Map | null = null;
+    let markerInstance: Marker | null = null;
 
-	let forecastData: DailyForecast[] | null = null;
-	let summaryData: WeeklySummary | null = null;
-	let isLoading: boolean = false;
-	let error: string | null = null;
+    let forecastData: DailyForecast[] | null = null;
+    let summaryData: WeeklySummary | null = null;
+    let isLoading: boolean = false;
+    let error: string | null = null;
 
-	const API_BASE_URL: string = 'https://weather-2twl.onrender.com';
+    const API_BASE_URL: string = 'https://weather-2twl.onrender.com';
 
-	const weatherIcons: { [key: number]: string } = {
-		0: '☀️', 1: '🌤️', 2: '🌥️', 3: '☁️', 45: '🌫️', 48: '🌫️',
-		51: '🌦️', 53: '🌦️', 55: '🌦️', 61: '🌧️', 63: '🌧️', 65: '🌧️',
-		71: '❄️', 73: '❄️', 75: '❄️', 80: '🌧️', 81: '🌧️', 82: '🌧️',
-		95: '⛈️', 96: '⛈️', 99: '⛈️'
-	};
+    const weatherIcons: { [key: number]: string } = {
+        0: '☀️', 1: '🌤️', 2: '🌥️', 3: '☁️', 45: '🌫️', 48: '🌫️',
+        51: '🌦️', 53: '🌦️', 55: '🌦️', 61: '🌧️', 63: '🌧️', 65: '🌧️',
+        71: '❄️', 73: '❄️', 75: '❄️', 80: '🌧️', 81: '🌧️', 82: '🌧️',
+        95: '⛈️', 96: '⛈️', 99: '⛈️'
+    };
 
-	function formatDate(dateString: string): string {
-		const date = new Date(dateString);
-		return new Intl.DateTimeFormat('pl-PL', {
-			weekday: 'long',
-			day: 'numeric',
-			month: 'short'
-		}).format(date);
-	}
+    function formatDate(dateString: string): string {
+        const date = new Date(dateString);
+        return new Intl.DateTimeFormat('pl-PL', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'short'
+        }).format(date);
+    }
 
-	async function getWeatherData(): Promise<void> {
-		isLoading = true;
-		error = null;
-		forecastData = null;
-		summaryData = null;
-		if (latitude === null || longitude === null || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-			error = "Nieprawidłowe współrzędne geograficzne.";
-			isLoading = false;
-			return;
-		}
-		try {
-			const forecastUrl = `${API_BASE_URL}/forecast?latitude=${latitude}&longitude=${longitude}`;
-			const summaryUrl = `${API_BASE_URL}/summary?latitude=${latitude}&longitude=${longitude}`;
-			const [forecastResponse, summaryResponse] = await Promise.all([
-				fetch(forecastUrl),
-				fetch(summaryUrl)
-			]);
-			if (!forecastResponse.ok || !summaryResponse.ok) {
-				const errorSource = !forecastResponse.ok ? forecastResponse : summaryResponse;
-				const errorDetails = await errorSource.json();
-				throw new Error(`Błąd API: ${errorDetails.detail || 'Nieznany błąd serwera'}`);
-			}
-			forecastData = await forecastResponse.json();
-			summaryData = await summaryResponse.json();
-		} catch (e: any) {
-			console.error('Błąd pobierania danych:', e);
-			error = e.message || 'Nie udało się połączyć z serwerem. Upewnij się, że backend jest uruchomiony.';
-		} finally {
-			isLoading = false;
-		}
-	}
+    async function getWeatherData(): Promise<void> {
+        isLoading = true;
+        error = null;
+        forecastData = null;
+        summaryData = null;
+        if (latitude === null || longitude === null || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+            error = "Nieprawidłowe współrzędne geograficzne.";
+            isLoading = false;
+            return;
+        }
+        try {
+            const forecastUrl = `${API_BASE_URL}/forecast?latitude=${latitude}&longitude=${longitude}`;
+            const summaryUrl = `${API_BASE_URL}/summary?latitude=${latitude}&longitude=${longitude}`;
+            const [forecastResponse, summaryResponse] = await Promise.all([
+                fetch(forecastUrl),
+                fetch(summaryUrl)
+            ]);
+            if (!forecastResponse.ok || !summaryResponse.ok) {
+                const errorSource = !forecastResponse.ok ? forecastResponse : summaryResponse;
+                const errorDetails = await errorSource.json();
+                throw new Error(`Błąd API: ${errorDetails.detail || 'Nieznany błąd serwera'}`);
+            }
+            forecastData = await forecastResponse.json();
+            summaryData = await summaryResponse.json();
+        } catch (e: any) {
+            console.error('Błąd pobierania danych:', e);
+            error = e.message || 'Nie udało się połączyć z serwerem. Upewnij się, że backend jest uruchomiony.';
+        } finally {
+            isLoading = false;
+        }
+    }
 
-	onMount(async () => {
+    onMount(async () => {
       if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
         darkMode = true;
         document.body.classList.add('dark');
@@ -99,53 +98,54 @@
         elem.style.display = 'block';
       }
 
-			const L = await import('leaflet')
+            const L = await import('leaflet')
 
-			const defaultIcon: Icon = L.icon({
-				iconUrl: iconUrl,
-				iconRetinaUrl: iconRetinaUrl,
-				shadowUrl: shadowUrl,
-				iconSize: [25, 41],
-				iconAnchor: [12, 41],
-				popupAnchor: [1, -34],
-				tooltipAnchor: [16, -28],
-				shadowSize: [41, 41]
-			});
-			L.Marker.prototype.options.icon = defaultIcon;
+            const defaultIcon: Icon = L.icon({
+                iconUrl: iconUrl,
+                iconRetinaUrl: iconRetinaUrl,
+                shadowUrl: shadowUrl,
+                iconSize: [25, 41],
+                iconAnchor: [12, 41],
+                popupAnchor: [1, -34],
+                tooltipAnchor: [16, -28],
+                shadowSize: [41, 41]
+            });
+            L.Marker.prototype.options.icon = defaultIcon;
 
-			const mapContainer = document.getElementById('map-container');
-			if (mapContainer) {
-				mapInstance = L.map(mapContainer).setView([latitude, longitude], 10);
+            const mapContainer = document.getElementById('map-container');
+            if (mapContainer) {
+                mapInstance = L.map(mapContainer).setView([latitude, longitude], 10);
 
-				L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-					attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-				}).addTo(mapInstance);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(mapInstance);
 
-				markerInstance = L.marker([latitude, longitude], { draggable: true }).addTo(mapInstance);
+                markerInstance = L.marker([latitude, longitude], { draggable: true }).addTo(mapInstance);
 
-				mapInstance.on('click', (e) => {
-					const newCoords = e.latlng;
-					latitude = newCoords.lat;
-					longitude = newCoords.lng;
-					markerInstance?.setLatLng(newCoords);
-					getWeatherData();
-				});
+                mapInstance.on('click', (e) => {
+                    const newCoords = e.latlng;
+                    latitude = newCoords.lat;
+                    longitude = newCoords.lng;
+                    markerInstance?.setLatLng(newCoords);
+                    getWeatherData();
+                });
 
-				markerInstance.on('drag', (e) => {
-					const newCoords = e.target.getLatLng();
-					latitude = newCoords.lat;
-					longitude = newCoords.lng;
-				});
+                markerInstance.on('drag', (e) => {
+                    const newCoords = e.target.getLatLng();
+                    latitude = newCoords.lat;
+                    longitude = newCoords.lng;
+                });
 
-        markerInstance.on('dragend', (e) => {
+        markerInstance.on('dragend', (_) => {
           getWeatherData();
         });
-			}
-		getWeatherData();
-	});
+            }
+        getWeatherData();
+    });
 </script>
+
 <svelte:head>
-	<title>Prognoza Pogody z Mapą</title>
+    <title>Prognoza Pogody z Mapą</title>
 </svelte:head>
 
 <div id="main-div">
@@ -249,49 +249,49 @@
     padding: 0;
   }
 
-	* { box-sizing: border-box; margin: 0; padding: 0; }
-	.container { font-family: 'Inter', sans-serif; background-color: var(--card-bg); color: var(--text-color); line-height: 1.6; }
-	.container { margin: auto; padding: 1rem; margin-bottom: 1rem; margin-top: 2rem; }
-	header { text-align: center; margin-bottom: 2rem; }
-	header h1 { font-size: 2.25rem; margin-bottom: 0.5rem; color: var(--title-color); }
-	header p { color: var(--text-secondary); font-size: 1.1rem; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    .container { font-family: 'Inter', sans-serif; background-color: var(--card-bg); color: var(--text-color); line-height: 1.6; }
+    .container { margin: auto; padding: 1rem; margin-bottom: 1rem; margin-top: 2rem; }
+    header { text-align: center; margin-bottom: 2rem; }
+    header h1 { font-size: 2.25rem; margin-bottom: 0.5rem; color: var(--title-color); }
+    header p { color: var(--text-secondary); font-size: 1.1rem; }
 
-	.map-section {
-		margin-bottom: 2rem;
-		background-color: var(--card-bg);
-		border-radius: 0.75rem;
-		box-shadow: var(--shadow);
-		padding: 1rem;
-	}
+    .map-section {
+        margin-bottom: 2rem;
+        background-color: var(--card-bg);
+        border-radius: 0.75rem;
+        box-shadow: var(--shadow);
+        padding: 1rem;
+    }
 
-	.map-container {
-		height: 400px; /* Kluczowe dla widoczności mapy */
-		width: 100%;
-		border-radius: 0.5rem;
-		border: 1px solid var(--border-color);
-		margin-bottom: 1rem;
-		background-color: #e2e8f0; /* Tło na czas ładowania kafelków */
-	}
-  :global(body.dark) .map-container { background-color: var(--card-bg); } /* Dark mode map background */
-	
-	.coords-display {
-		display: flex;
-		gap: 1.5rem;
-		justify-content: center;
-		padding: 0.5rem;
-		background-color: var(--bg-color);
-		border-radius: 0.5rem;
-		color: var(--text-secondary);
-	}
+    .map-container {
+        height: 400px;
+        width: 100%;
+        border-radius: 0.5rem;
+        border: 1px solid var(--border-color);
+        margin-bottom: 1rem;
+        background-color: #e2e8f0;
+    }
+  :global(body.dark) .map-container { background-color: var(--card-bg); }
+    
+    .coords-display {
+        display: flex;
+        gap: 1.5rem;
+        justify-content: center;
+        padding: 0.5rem;
+        background-color: var(--bg-color);
+        border-radius: 0.5rem;
+        color: var(--text-secondary);
+    }
   :global(body.dark) .coords-display {
       background-color: #2d3748;
       color: var(--text-secondary);
   }
 
-	.coords-display strong {
-		color: var(--text-color);
-		font-weight: 500;
-	}
+    .coords-display strong {
+        color: var(--text-color);
+        font-weight: 500;
+    }
 
   .error-box {
     background-color: var(--error-bg);
@@ -466,7 +466,7 @@
     --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
     --error-bg: #fee2e2;
     --error-text: #b91c1c;
-        --energy-bg: #fefce8padding
+        --energy-bg: #fefce8;
         --energy-text: #a16207;
   }
 
