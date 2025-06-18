@@ -1,201 +1,240 @@
 <script lang="ts">
-    import { onMount } from 'svelte';
-    import type { Map, Marker, Icon } from 'leaflet';
+  import { onMount } from 'svelte';
+  import type { Map, Marker, Icon } from 'leaflet';
+  
+  import 'leaflet/dist/leaflet.css';
+  import iconUrl from 'leaflet/dist/images/marker-icon.png';
+  import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
+  import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
+  
+  import DarkModeToggle from './DarkModeToggle.svelte';
 
-    import 'leaflet/dist/leaflet.css';
-    import iconUrl from 'leaflet/dist/images/marker-icon.png';
-    import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
-    import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
+  const DEFAULT_LATITUDE = 52.23;
+  const DEFAULT_LONGITUDE = 21.01;
+  const API_BASE_URL = 'https://weather-2twl.onrender.com';
+  const LOCATION_ERROR_TIMEOUT = 4000;
 
-    import DarkModeToggle from './DarkModeToggle.svelte';
+  const weatherIcons: { [key: number]: string } = {
+    0: '☀️', 1: '🌤️', 2: '🌥️', 3: '☁️', 45: '🌫️', 48: '🌫️',
+    51: '🌦️', 53: '🌦️', 55: '🌦️', 61: '🌧️', 63: '🌧️', 65: '🌧️',
+    71: '❄️', 73: '❄️', 75: '❄️', 80: '🌧️', 81: '🌧️', 82: '🌧️',
+    95: '⛈️', 96: '⛈️', 99: '⛈️'
+  };
 
-    const DEFAULT_LATITUDE = 52.23;
-    const DEFAULT_LONGITUDE = 21.01;
+  interface DailyForecast {
+    date: string;
+    weather_code: number;
+    temperature_min_celsius: number;
+    temperature_max_celsius: number;
+    estimated_energy_kwh: number;
+  }
 
-    let darkMode: boolean | null = null;
+  interface WeeklySummary {
+    average_weekly_pressure_hPa: number;
+    average_weekly_sunshine_hours: number;
+    weekly_min_temperature_celsius: number;
+    weekly_max_temperature_celsius: number;
+    weekly_weather_summary: string;
+  }
 
-    interface DailyForecast {
-        date: string;
-        weather_code: number;
-        temperature_min_celsius: number;
-        temperature_max_celsius: number;
-        estimated_energy_kwh: number;
-    }
+  let darkMode: boolean | null = null;
+  let latitude: number | null = null;
+  let longitude: number | null = null;
+  let mapInstance: Map | null = null;
+  let markerInstance: Marker | null = null;
+  let forecastData: DailyForecast[] | null = null;
+  let summaryData: WeeklySummary | null = null;
+  let isLoading: boolean = true;
+  let apiError: string | null = null;
+  let locationError: string | null = null;
 
-    interface WeeklySummary {
-        average_weekly_pressure_hPa: number;
-        average_weekly_sunshine_hours: number;
-        weekly_min_temperature_celsius: number;
-        weekly_max_temperature_celsius: number;
-        weekly_weather_summary: string;
-    }
+  function formatDate(dateString: string): string {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('pl-PL', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'short'
+    }).format(date);
+  }
 
-    let latitude: number | null = null;
-    let longitude: number | null = null;
-    // let latitude: number = 52.23;
-    // let longitude: number = 21.01;
+  function areValidCoordinates(lat: number | null, lng: number | null): boolean {
+    return lat !== null && lng !== null && 
+           lat >= -90 && lat <= 90 && 
+           lng >= -180 && lng <= 180;
+  }
 
-    let mapInstance: Map | null = null;
-    let markerInstance: Marker | null = null;
+  function showLocationError(message: string): void {
+    locationError = message;
+    setTimeout(() => {
+      locationError = null;
+    }, LOCATION_ERROR_TIMEOUT);
+  }
 
-    let forecastData: DailyForecast[] | null = null;
-    let summaryData: WeeklySummary | null = null;
-    let isLoading: boolean = true;
-    let apiError: string | null = null;
-    let locationError: string | null = null;
-
-    const API_BASE_URL: string = 'https://weather-2twl.onrender.com';
-
-    const weatherIcons: { [key: number]: string } = {
-        0: '☀️', 1: '🌤️', 2: '🌥️', 3: '☁️', 45: '🌫️', 48: '🌫️',
-        51: '🌦️', 53: '🌦️', 55: '🌦️', 61: '🌧️', 63: '🌧️', 65: '🌧️',
-        71: '❄️', 73: '❄️', 75: '❄️', 80: '🌧️', 81: '🌧️', 82: '🌧️',
-        95: '⛈️', 96: '⛈️', 99: '⛈️'
-    };
-
-    function formatDate(dateString: string): string {
-        const date = new Date(dateString);
-        return new Intl.DateTimeFormat('pl-PL', {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'short'
-        }).format(date);
-    }
-
-    async function getWeatherData(): Promise<void> {
-        if (latitude === null || longitude === null) {
-          return;
-        }
-        isLoading = true;
-        apiError = null;
-        forecastData = null;
-        summaryData = null;
-        if (latitude === null || longitude === null || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
-            apiError = "Nieprawidłowe współrzędne geograficzne.";
-            isLoading = false;
-            return;
-        }
-        try {
-            const forecastUrl = `${API_BASE_URL}/forecast?latitude=${latitude}&longitude=${longitude}`;
-            const summaryUrl = `${API_BASE_URL}/summary?latitude=${latitude}&longitude=${longitude}`;
-            const [forecastResponse, summaryResponse] = await Promise.all([
-                fetch(forecastUrl),
-                fetch(summaryUrl)
-            ]);
-            if (!forecastResponse.ok || !summaryResponse.ok) {
-                const errorSource = !forecastResponse.ok ? forecastResponse : summaryResponse;
-                const errorDetails = await errorSource.json();
-                throw new Error(`Błąd API: ${errorDetails.detail || 'Nieznany błąd serwera'}`);
-            }
-            forecastData = await forecastResponse.json();
-            summaryData = await summaryResponse.json();
-        } catch (e: any) {
-            console.error('Błąd pobierania danych:', e);
-            apiError = e.message || 'Nie udało się połączyć z serwerem. Upewnij się, że backend jest uruchomiony.';
-        } finally {
-            isLoading = false;
-        }
-    }
-
-    onMount(async () => {
-      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
-        darkMode = true;
-        document.body.classList.add('dark');
+  async function getWeatherData(): Promise<void> {
+    if (!areValidCoordinates(latitude, longitude)) {
+      if (latitude !== null || longitude !== null) {
+        apiError = "Nieprawidłowe współrzędne geograficzne.";
       }
-      let elem = document.getElementById('main-div');
-      if (elem) {
-        elem.style.display = 'block';
-      }
-      const LPromise = import('leaflet')
+      isLoading = false;
+      return;
+    }
 
-      let positionPromise: Promise<GeolocationPosition> | null = null;
-      if ("geolocation" in navigator) {
-        positionPromise = new Promise<GeolocationPosition>((resolve, reject) => {
-          navigator.geolocation.getCurrentPosition(resolve, reject);
-        });
+    isLoading = true;
+    apiError = null;
+    forecastData = null;
+    summaryData = null;
+
+    try {
+      const forecastUrl = `${API_BASE_URL}/forecast?latitude=${latitude}&longitude=${longitude}`;
+      const summaryUrl = `${API_BASE_URL}/summary?latitude=${latitude}&longitude=${longitude}`;
+      
+      const [forecastResponse, summaryResponse] = await Promise.all([
+        fetch(forecastUrl),
+        fetch(summaryUrl)
+      ]);
+
+      if (!forecastResponse.ok || !summaryResponse.ok) {
+        const errorSource = !forecastResponse.ok ? forecastResponse : summaryResponse;
+        const errorDetails = await errorSource.json();
+        throw new Error(`Błąd API: ${errorDetails.detail || 'Nieznany błąd serwera'}`);
       }
 
-      const L = await LPromise
+      forecastData = await forecastResponse.json();
+      summaryData = await summaryResponse.json();
+    } catch (e: any) {
+      console.error('Błąd pobierania danych:', e);
+      apiError = e.message || 'Nie udało się połączyć z serwerem. Upewnij się, że backend jest uruchomiony.';
+    } finally {
+      isLoading = false;
+    }
+  }
 
-      const defaultIcon: Icon = L.icon({
-          iconUrl: iconUrl,
-          iconRetinaUrl: iconRetinaUrl,
-          shadowUrl: shadowUrl,
-          iconSize: [25, 41],
-          iconAnchor: [12, 41],
-          popupAnchor: [1, -34],
-          tooltipAnchor: [16, -28],
-          shadowSize: [41, 41]
+  async function getCurrentLocation(): Promise<GeolocationPosition | null> {
+    if (!("geolocation" in navigator)) {
+      return null;
+    }
+
+    try {
+      return await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject);
       });
-      L.Marker.prototype.options.icon = defaultIcon;
+    } catch (e) {
+      console.error(e);
+      showLocationError("Wystąpił błąd podczas pobierania lokalizacji.");
+      return null;
+    }
+  }
 
-      const mapContainer = document.getElementById('map-container');
-      if (positionPromise !== null) {
-        try {
-          const position = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject);
-          });
-          latitude = position.coords.latitude;
-          longitude = position.coords.longitude;
-        } catch (e) {
-          console.error(e);
-          locationError = "Wystąpił błąd podczas pobierania lokalizacji.";
-          setTimeout(() => {
-            locationError = null;
-          }, 4000);
-        }
-      }
-      if (latitude === null || longitude === null) {
-        locationError = "Nie można uzyskać lokalizacji.";
-        setTimeout(() => {
-          locationError = null;
-        }, 4000);
-        latitude = DEFAULT_LATITUDE;
-        longitude = DEFAULT_LONGITUDE;
-      }
-      markerInstance?.setLatLng([latitude, longitude]);
-      if (mapContainer) {
-        mapInstance = L.map(mapContainer).setView([latitude, longitude], 10);
+  function setDefaultLocation(): void {
+    showLocationError("Nie można uzyskać lokalizacji.");
+    latitude = DEFAULT_LATITUDE;
+    longitude = DEFAULT_LONGITUDE;
+  }
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(mapInstance);
-
-        markerInstance = L.marker([latitude, longitude], { draggable: true }).addTo(mapInstance);
-
-        mapInstance.on('click', (e) => {
-            const newCoords = e.latlng;
-            latitude = newCoords.lat;
-            longitude = newCoords.lng;
-            markerInstance?.setLatLng(newCoords);
-            getWeatherData();
-        });
-
-        markerInstance.on('drag', (e) => {
-            const newCoords = e.target.getLatLng();
-            latitude = newCoords.lat;
-            longitude = newCoords.lng;
-        });
-
-        markerInstance.on('dragend', (e) => {
-          const newCoords = e.target.getLatLng();
-          latitude = newCoords.lat;
-          longitude = newCoords.lng;
-          getWeatherData();
-        });
-        getWeatherData();
-      }
+  function setupLeafletDefaults(L: any): void {
+    const defaultIcon: Icon = L.icon({
+      iconUrl: iconUrl,
+      iconRetinaUrl: iconRetinaUrl,
+      shadowUrl: shadowUrl,
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      tooltipAnchor: [16, -28],
+      shadowSize: [41, 41]
     });
+    L.Marker.prototype.options.icon = defaultIcon;
+  }
+
+  function initializeMap(L: any, mapContainer: Element): void {
+    if (!areValidCoordinates(latitude, longitude)) return;
+
+    mapInstance = L.map(mapContainer).setView([latitude, longitude], 10);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(mapInstance);
+
+    markerInstance = L.marker([latitude, longitude], { draggable: true }).addTo(mapInstance);
+    setupMapEventListeners();
+  }
+
+  function setupMapEventListeners(): void {
+    if (!mapInstance || !markerInstance) return;
+
+    mapInstance.on('click', (e) => {
+      const newCoords = e.latlng;
+      updateCoordinates(newCoords.lat, newCoords.lng);
+      markerInstance?.setLatLng(newCoords);
+      getWeatherData();
+    });
+
+    markerInstance.on('drag', (e) => {
+      const newCoords = e.target.getLatLng();
+      updateCoordinates(newCoords.lat, newCoords.lng);
+    });
+
+    markerInstance.on('dragend', (e) => {
+      const newCoords = e.target.getLatLng();
+      updateCoordinates(newCoords.lat, newCoords.lng);
+      getWeatherData();
+    });
+  }
+
+  function updateCoordinates(lat: number, lng: number): void {
+    latitude = lat;
+    longitude = lng;
+  }
+
+  function initializeDarkMode(): void {
+    if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      darkMode = true;
+      document.body.classList.add('dark');
+    }
+  }
+
+  function showMainDiv(): void {
+    const elem = document.getElementById('main-div');
+    if (elem) {
+      elem.style.display = 'block';
+    }
+  }
+
+  onMount(async () => {
+    initializeDarkMode();
+    showMainDiv();
+
+    const [L, position] = await Promise.all([
+      import('leaflet'),
+      getCurrentLocation()
+    ]);
+
+    setupLeafletDefaults(L);
+
+    if (position) {
+      latitude = position.coords.latitude;
+      longitude = position.coords.longitude;
+    } else {
+      setDefaultLocation();
+    }
+
+    markerInstance?.setLatLng([latitude!, longitude!]);
+
+    const mapContainer = document.getElementById('map-container');
+    if (mapContainer) {
+      initializeMap(L, mapContainer);
+      getWeatherData();
+    }
+  });
 </script>
 
 <svelte:head>
-    <title>Prognoza Pogody z Mapą</title>
+  <title>Prognoza Pogody z Mapą</title>
 </svelte:head>
 
 <div id="main-div">
   <main class="container">
     <div class="topright-corner">
-      <DarkModeToggle darkMode={darkMode} />
+      <DarkModeToggle {darkMode} />
     </div>
 
     <header>
@@ -212,11 +251,10 @@
     <div class="map-section">
       <div id="map-container" class="map-container"></div>
       <div class="coords-display">
-        <span>Szerokość: <strong>{latitude ? latitude.toFixed(4): "-"}</strong></span>
-        <span>Długość: <strong>{longitude ? longitude.toFixed(4): "-"}</strong></span>
+        <span>Szerokość: <strong>{latitude ? latitude.toFixed(4) : "-"}</strong></span>
+        <span>Długość: <strong>{longitude ? longitude.toFixed(4) : "-"}</strong></span>
       </div>
     </div>
-
 
     {#if apiError}
       <div class="error-box">
@@ -278,7 +316,6 @@
 </div>
 
 <style>
-
   #main-div {
     display: none;
   }
@@ -300,49 +337,79 @@
     padding: 0;
   }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    .container { font-family: 'Inter', sans-serif; background-color: var(--card-bg); color: var(--text-color); line-height: 1.6; }
-    .container { margin: auto; padding: 1rem; margin-bottom: 1rem; margin-top: 2rem; }
-    header { text-align: center; margin-bottom: 2rem; }
-    header h1 { font-size: 2.25rem; margin-bottom: 0.5rem; color: var(--title-color); }
-    header p { color: var(--text-secondary); font-size: 1.1rem; }
-
-    .map-section {
-        margin-bottom: 2rem;
-        background-color: var(--card-bg);
-        border-radius: 0.75rem;
-        box-shadow: var(--shadow);
-        padding: 1rem;
-    }
-
-    .map-container {
-        height: 400px;
-        width: 100%;
-        border-radius: 0.5rem;
-        border: 1px solid var(--border-color);
-        margin-bottom: 1rem;
-        background-color: #e2e8f0;
-    }
-  :global(body.dark) .map-container { background-color: var(--card-bg); }
-    
-    .coords-display {
-        display: flex;
-        gap: 1.5rem;
-        justify-content: center;
-        padding: 0.5rem;
-        background-color: var(--bg-color);
-        border-radius: 0.5rem;
-        color: var(--text-secondary);
-    }
-  :global(body.dark) .coords-display {
-      background-color: #2d3748;
-      color: var(--text-secondary);
+  * { 
+    box-sizing: border-box; 
+    margin: 0; 
+    padding: 0; 
   }
 
-    .coords-display strong {
-        color: var(--text-color);
-        font-weight: 500;
-    }
+  .container { 
+    font-family: 'Inter', sans-serif; 
+    background-color: var(--card-bg); 
+    color: var(--text-color); 
+    line-height: 1.6;
+    margin: auto; 
+    padding: 1rem; 
+    margin-bottom: 1rem; 
+    margin-top: 2rem;
+  }
+
+  header { 
+    text-align: center; 
+    margin-bottom: 2rem; 
+  }
+
+  header h1 { 
+    font-size: 2.25rem; 
+    margin-bottom: 0.5rem; 
+    color: var(--title-color); 
+  }
+
+  header p { 
+    color: var(--text-secondary); 
+    font-size: 1.1rem; 
+  }
+
+  .map-section {
+    margin-bottom: 2rem;
+    background-color: var(--card-bg);
+    border-radius: 0.75rem;
+    box-shadow: var(--shadow);
+    padding: 1rem;
+  }
+
+  .map-container {
+    height: 400px;
+    width: 100%;
+    border-radius: 0.5rem;
+    border: 1px solid var(--border-color);
+    margin-bottom: 1rem;
+    background-color: #e2e8f0;
+  }
+
+  :global(body.dark) .map-container { 
+    background-color: var(--card-bg); 
+  }
+    
+  .coords-display {
+    display: flex;
+    gap: 1.5rem;
+    justify-content: center;
+    padding: 0.5rem;
+    background-color: var(--bg-color);
+    border-radius: 0.5rem;
+    color: var(--text-secondary);
+  }
+
+  :global(body.dark) .coords-display {
+    background-color: #2d3748;
+    color: var(--text-secondary);
+  }
+
+  .coords-display strong {
+    color: var(--text-color);
+    font-weight: 500;
+  }
 
   .error-box {
     background-color: var(--error-bg);
@@ -354,155 +421,151 @@
   }
 
   .loader {
-      border: 5px solid #f3f3f3;
-      border-top: 5px solid var(--primary-color);
-      border-radius: 50%;
-      width: 50px;
-      height: 50px;
-      animation: spin 1s linear infinite;
-      margin: 2rem auto;
+    border: 5px solid #f3f3f3;
+    border-top: 5px solid var(--primary-color);
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1s linear infinite;
+    margin: 2rem auto;
   }
+
   :global(body.dark) .loader {
     border-color: #4a5568;
     border-top-color: var(--primary-color);
   }
 
-
   @keyframes spin {
-      0% {
-          transform: rotate(0deg);
-      }
-      100% {
-          transform: rotate(360deg);
-      }
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
   }
 
   .results-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
   }
 
   @media (min-width: 768px) {
-      .results-grid {
-          grid-template-columns: 300px 1fr;
-          align-items: start;
-      }
+    .results-grid {
+      grid-template-columns: 300px 1fr;
+      align-items: start;
+    }
   }
 
   .summary-card,
   .forecast-section {
-      background-color: var(--card-bg);
-      padding: 1.5rem;
-      border-radius: 0.75rem;
-      box-shadow: var(--shadow);
+    background-color: var(--card-bg);
+    padding: 1.5rem;
+    border-radius: 0.75rem;
+    box-shadow: var(--shadow);
   }
 
   .summary-card h2,
   .forecast-section h2 {
-      margin-bottom: 1.5rem;
-      font-size: 1.25rem;
-      border-bottom: 1px solid var(--border-color);
-      padding-bottom: 0.75rem;
+    margin-bottom: 1.5rem;
+    font-size: 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 0.75rem;
   }
 
   .summary-card .summary-weather-info {
-      text-align: center;
-      margin-bottom: 1.5rem;
-      font-size: 1.1rem;
-      color: var(--text-secondary);
+    text-align: center;
+    margin-bottom: 1.5rem;
+    font-size: 1.1rem;
+    color: var(--text-secondary);
   }
 
   .summary-card .summary-weather-info strong {
-      color: var(--text-color);
-      font-weight: 500;
+    color: var(--text-color);
+    font-weight: 500;
   }
 
   .summary-card ul {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
   }
 
   .summary-card li {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-size: 1rem;
-      color: var(--text-secondary);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 1rem;
+    color: var(--text-secondary);
   }
 
   .summary-card li strong {
-      color: var(--text-color);
-      font-weight: 500;
+    color: var(--text-color);
+    font-weight: 500;
   }
 
   .forecast-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
-      gap: 1rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 1rem;
   }
 
   .day-card {
-      border: 1px solid var(--border-color);
-      border-radius: 0.75rem;
-      padding: 1rem;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border: 1px solid var(--border-color);
+    border-radius: 0.75rem;
+    padding: 1rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
 
   .day-card:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-  }
-  :global(body.dark) .day-card:hover {
-      box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.2);
+    transform: translateY(-5px);
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
   }
 
+  :global(body.dark) .day-card:hover {
+    box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.2);
+  }
 
   .day-card .date {
-      font-weight: 500;
-      font-size: 0.9rem;
-      text-transform: capitalize;
+    font-weight: 500;
+    font-size: 0.9rem;
+    text-transform: capitalize;
   }
 
   .day-card .weather-icon {
-      font-size: 3rem;
-      margin: 0.5rem 0;
+    font-size: 3rem;
+    margin: 0.5rem 0;
   }
 
   .day-card .temp {
-      font-size: 1.1rem;
-      font-weight: 500;
-      display: flex;
-      justify-content: center;
-      gap: 0.75rem;
+    font-size: 1.1rem;
+    font-weight: 500;
+    display: flex;
+    justify-content: center;
+    gap: 0.75rem;
   }
 
   .day-card .temp-max {
-      color: var(--text-color);
+    color: var(--text-color);
   }
 
   .day-card .temp-min {
-      color: var(--text-secondary);
+    color: var(--text-secondary);
   }
 
   .day-card .energy {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.25rem;
-      font-size: 0.9rem;
-      background-color: var(--energy-bg);
-      color: var(--energy-text);
-      padding: 0.25rem 0.5rem;
-      border-radius: 999px;
-      margin-top: 0.5rem;
-      font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    font-size: 0.9rem;
+    background-color: var(--energy-bg);
+    color: var(--energy-text);
+    padding: 0.25rem 0.5rem;
+    border-radius: 999px;
+    margin-top: 0.5rem;
+    font-weight: 500;
   }
   
   :global(body) {
@@ -517,25 +580,23 @@
     --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
     --error-bg: #fee2e2;
     --error-text: #b91c1c;
-        --energy-bg: #fefce8;
-        --energy-text: #a16207;
+    --energy-bg: #fefce8;
+    --energy-text: #a16207;
   }
 
-
-  /* Dark Mode Styles */
   :global(body.dark) {
-      --bg-color: #1a202c;
-      --card-bg: #2d3748;
-      --text-color: #e2e8f0;
-      --text-secondary: #a0aec0;
-      --primary-color: #63b3ed;
-      --primary-hover: #4299e1;
-      --border-color: #4a5568;
-      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
-      --error-bg: #4c0519;
-      --error-text: #fecaca;
-      --energy-bg: #3a3a2e;
-      --energy-text: #f6e05e;
-      --title-color: #8d51ff;
+    --bg-color: #1a202c;
+    --card-bg: #2d3748;
+    --text-color: #e2e8f0;
+    --text-secondary: #a0aec0;
+    --primary-color: #63b3ed;
+    --primary-hover: #4299e1;
+    --border-color: #4a5568;
+    --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
+    --error-bg: #4c0519;
+    --error-text: #fecaca;
+    --energy-bg: #3a3a2e;
+    --energy-text: #f6e05e;
+    --title-color: #8d51ff;
   }
 </style>
