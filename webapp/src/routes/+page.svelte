@@ -7,6 +7,11 @@
 	import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 	import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
 
+  // Import the new DarkModeToggle component
+  import DarkModeToggle from './DarkModeToggle.svelte';
+
+  // get the current dark mode preference from local storage
+  let darkMode: boolean = false;
 
 	interface DailyForecast {
 		date: string;
@@ -86,7 +91,11 @@
 	}
 
 	onMount(async () => {
-		if (typeof window !== 'undefined') {
+      // get the current dark mode preference from user's browser settings
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        darkMode = true;
+        document.documentElement.classList.add('dark');
+      }
 			
 			const L = (await import('leaflet')).default;
 
@@ -127,8 +136,6 @@
 					getWeatherData();
 				});
 			}
-		}
-
 		getWeatherData();
 	});
 </script>
@@ -137,6 +144,9 @@
 	<title>Prognoza Pogody z Mapą</title>
 </svelte:head>
 
+  <div class="topleft-corner">
+    <DarkModeToggle darkMode={darkMode} />
+  </div>
 <main class="container">
 	<header>
 		<h1>☀️ Prognoza Pogody i Energii Słonecznej</h1>
@@ -221,13 +231,37 @@
 		--shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
 		--error-bg: #fee2e2;
 		--error-text: #b91c1c;
+        --energy-bg: #fefce8;
+        --energy-text: #a16207;
 	}
+
+    /* Dark Mode Styles */
+    html.dark {
+        --bg-color: #1a202c;
+        --card-bg: #2d3748;
+        --text-color: #e2e8f0;
+        --text-secondary: #a0aec0;
+        --primary-color: #63b3ed;
+        --primary-hover: #4299e1;
+        --border-color: #4a5568;
+        --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.3), 0 2px 4px -2px rgb(0 0 0 / 0.2);
+        --error-bg: #4c0519;
+        --error-text: #fecaca;
+        --energy-bg: #3a3a2e;
+        --energy-text: #f6e05e;
+    }
+
+  .topleft-corner {
+    align-items: left;
+    margin-bottom: 0px;
+  }
 
 	* { box-sizing: border-box; margin: 0; padding: 0; }
 	.container { font-family: 'Inter', sans-serif; background-color: var(--bg-color); color: var(--text-color); line-height: 1.6; }
-	.container { max-width: 900px; margin: 2rem auto; padding: 1rem; }
+	.container { max-width: 900px; margin: auto; padding: 1rem; }
 	header { text-align: center; margin-bottom: 2rem; }
 	header h1 { font-size: 2.25rem; margin-bottom: 0.5rem; color: #0f172a; }
+    html.dark header h1 { color: var(--text-color); } /* Ensure header text changes in dark mode */
 	header p { color: var(--text-secondary); font-size: 1.1rem; }
 
 	.map-section {
@@ -246,6 +280,7 @@
 		margin-bottom: 1rem;
 		background-color: #e2e8f0; /* Tło na czas ładowania kafelków */
 	}
+    html.dark .map-container { background-color: #4a5568; } /* Dark mode map background */
 	
 	.coords-display {
 		display: flex;
@@ -256,6 +291,10 @@
 		border-radius: 0.5rem;
 		color: var(--text-secondary);
 	}
+    html.dark .coords-display {
+        background-color: #2d3748;
+        color: var(--text-secondary);
+    }
 
 	.coords-display strong {
 		color: var(--text-color);
@@ -280,6 +319,11 @@
       animation: spin 1s linear infinite;
       margin: 2rem auto;
   }
+  html.dark .loader {
+      border-color: #4a5568;
+      border-top-color: var(--primary-color);
+  }
+
 
   @keyframes spin {
       0% {
@@ -372,6 +416,10 @@
       transform: translateY(-5px);
       box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
   }
+    html.dark .day-card:hover {
+        box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.3), 0 4px 6px -4px rgb(0 0 0 / 0.2);
+    }
+
 
   .day-card .date {
       font-weight: 500;
@@ -406,8 +454,8 @@
       justify-content: center;
       gap: 0.25rem;
       font-size: 0.9rem;
-      background-color: #fefce8;
-      color: #a16207;
+      background-color: var(--energy-bg);
+      color: var(--energy-text);
       padding: 0.25rem 0.5rem;
       border-radius: 999px;
       margin-top: 0.5rem;
