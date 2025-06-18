@@ -169,19 +169,32 @@ async def get_daily_forecast(
     sunshine_durations = daily_info.get("sunshine_duration", [])  # in seconds
 
     for i in range(len(dates)):
-        if any(v is None for v in [dates[i], weather_codes[i], temp_mins[i], temp_maxes[i], sunshine_durations[i]]):
-            continue
-            
-        exposure_time_hours = (sunshine_durations[i] or 0) / 3600
+        # Explicitly check and handle None for each required value
+        current_date_str = dates[i]
+        current_weather_code = weather_codes[i]
+        current_temp_min = temp_mins[i]
+        current_temp_max = temp_maxes[i]
+        current_sunshine_duration = sunshine_durations[i]
+
+        if not isinstance(current_weather_code, int):
+            raise TypeError(f"Unexpected type for current_weather_code: {type(current_weather_code)}")
+        if not isinstance(current_temp_min, float):
+            raise TypeError(f"Unexpected type for current_temp_min: {type(current_temp_min)}")
+        if not isinstance(current_temp_max, float):
+            raise TypeError(f"Unexpected type for current_temp_max: {type(current_temp_max)}")
+        if not isinstance(current_sunshine_duration, float):
+            raise TypeError(f"Unexpected type for current_sunshine_duration: {type(current_sunshine_duration)}")
+
+        exposure_time_hours = current_sunshine_duration / 3600
         
         estimated_energy_kwh = SOLAR_INSTALLATION_POWER_KW * exposure_time_hours * PANEL_EFFICIENCY
 
         forecast_list.append(
             DailyForecast(
-                date=date.fromisoformat(dates[i]),
-                weather_code=weather_codes[i], # pyright: ignore[reportArgumentType]
-                temperature_min_celsius=temp_mins[i], # pyright: ignore[reportArgumentType]
-                temperature_max_celsius=temp_maxes[i], # pyright: ignore[reportArgumentType]
+                date=date.fromisoformat(current_date_str),
+                weather_code=current_weather_code,
+                temperature_min_celsius=current_temp_min,
+                temperature_max_celsius=current_temp_max,
                 estimated_energy_kwh=round(estimated_energy_kwh, 2),
             )
         )
@@ -238,13 +251,16 @@ async def get_weekly_summary(
     if current_day_pressures: # Add the last day's average
         daily_pressures.append(sum(current_day_pressures) / len(current_day_pressures))
 
+    # Handle cases where daily_pressures might be empty
     average_weekly_pressure_hPa: float = round(sum(daily_pressures) / len(daily_pressures), 2) if daily_pressures else 0.0
 
     valid_sunshine_durations = [s for s in sunshine_durations if s is not None]
     total_sunshine_seconds = sum(valid_sunshine_durations)
+    # Handle cases where valid_sunshine_durations might be empty
     average_weekly_sunshine_hours: float = round((total_sunshine_seconds / len(valid_sunshine_durations)) / 3600, 2) if valid_sunshine_durations else 0.0
 
     all_temperatures = [t for t in temp_maxes + temp_mins if t is not None]
+    # Handle cases where all_temperatures might be empty
     weekly_min_temperature_celsius: float = min(all_temperatures) if all_temperatures else 0.0
     weekly_max_temperature_celsius: float = max(all_temperatures) if all_temperatures else 0.0
 
@@ -258,3 +274,4 @@ async def get_weekly_summary(
         weekly_max_temperature_celsius=weekly_max_temperature_celsius,
         weekly_weather_summary=weekly_weather_summary,
     )
+
